@@ -36,7 +36,7 @@ fi
 # ── Generate random secrets if not provided ──────────────────────────────────
 if [ -z "$AUTH_TOKEN" ]; then
     AUTH_TOKEN=$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))')
-    echo "[NERV:SEC] Generated auth token: ${AUTH_TOKEN}"
+    echo "[NERV:SEC] Generated auth token (length: ${#AUTH_TOKEN})"
 fi
 
 # ── Disable Python bytecode caching (security) ──────────────────────────────

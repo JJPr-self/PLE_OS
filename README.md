@@ -90,11 +90,11 @@ PLEASUREDAI OS / NERV Genesis is a production-ready Docker deployment of ComfyUI
 ### 1. Clone & Build
 
 ```bash
-git clone <your-repo-url> pleasuredai-os
+git clone https://github.com/JJPr-self/PLE_OS.git pleasuredai-os
 cd pleasuredai-os
 
 # Build the Docker image (~8-10 min on good internet)
-docker build -t pleasuredai/nerv-genesis:latest .
+docker build -t m842/pleasured_ai:latest .
 ```
 
 ### 2. Run Locally
@@ -111,7 +111,7 @@ docker compose up -d
 | **ComfyUI (direct)** | http://localhost:8188 |
 | **NERV UI (direct)** | http://localhost:3000 |
 
-Default login: `nerv` / `genesis`
+Default login credentials are set via `AUTH_USERNAME` and `AUTH_PASSWORD` environment variables.
 
 ### 4. Download Models
 
@@ -407,12 +407,9 @@ Same VRAM as 3090 but with:
 
 ### Default Credentials
 
-**⚠️ CHANGE THESE BEFORE DEPLOYING TO THE CLOUD!**
+**⚠️ There are NO hardcoded credentials in source code.**
 
-```
-Username: nerv
-Password: genesis
-```
+Credentials are set at runtime via environment variables. The Docker image ships with fallback defaults (`nerv`/`genesis`) that are only used if you don't set `AUTH_USERNAME` and `AUTH_PASSWORD` env vars. **Always set custom credentials for cloud deployments.**
 
 ### Setting Custom Credentials
 
