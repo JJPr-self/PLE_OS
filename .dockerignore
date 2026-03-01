@@ -1,0 +1,16 @@
+# PLEASUREDAI OS — Docker Ignore
+# Prevent unnecessary files from being sent to build context
+
+.git
+.gitignore
+*.md
+!README.md
+.env
+*.log
+__pycache__
+*.pyc
+.DS_Store
+Thumbs.db
+node_modules
+.vscode
+.idea

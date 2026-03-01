@@ -1,0 +1,91 @@
+{
+    "last_node_id": 8,
+    "last_link_id": 7,
+    "_comment": "CogVideoX-5B text-to-video workflow using kijai's CogVideoXWrapper. Requires: ComfyUI-CogVideoXWrapper, ComfyUI-VideoHelperSuite.",
+    "nodes": [
+        {
+            "id": 1,
+            "type": "DownloadAndLoadCogVideoModel",
+            "pos": [50, 100],
+            "size": [380, 150],
+            "outputs": [
+                {"name": "cogvideo_pipe", "type": "COGVIDEOPIPE", "links": [1]}
+            ],
+            "widgets_values": ["THUDM/CogVideoX-5b", "fp16", "fp16", false, "disabled", "sdpa"],
+            "title": "Load CogVideoX-5B"
+        },
+        {
+            "id": 2,
+            "type": "CogVideoTextEncode",
+            "pos": [50, 320],
+            "size": [380, 170],
+            "inputs": [
+                {"name": "pipeline", "type": "COGVIDEOPIPE", "link": 1}
+            ],
+            "outputs": [
+                {"name": "cogvideo_pipe", "type": "COGVIDEOPIPE", "links": [2]},
+                {"name": "positive", "type": "COGCOND", "links": [3]},
+                {"name": "negative", "type": "COGCOND", "links": [4]}
+            ],
+            "widgets_values": ["A time-lapse of a flower blooming in a garden, petals unfurling in golden sunlight. Macro photography, shallow depth of field, dreamy bokeh background, 4K quality.", "low quality, blurry, distorted, watermark"],
+            "title": "Prompt Encoder"
+        },
+        {
+            "id": 3,
+            "type": "CogVideoSampler",
+            "pos": [500, 100],
+            "size": [380, 380],
+            "inputs": [
+                {"name": "pipeline", "type": "COGVIDEOPIPE", "link": 2},
+                {"name": "positive", "type": "COGCOND", "link": 3},
+                {"name": "negative", "type": "COGCOND", "link": 4}
+            ],
+            "outputs": [
+                {"name": "cogvideo_pipe", "type": "COGVIDEOPIPE", "links": []},
+                {"name": "samples", "type": "LATENT", "links": [5]}
+            ],
+            "widgets_values": [480, 720, 49, 50, 6.0, 42, "fixed", "CogVideoXDPMScheduler"],
+            "title": "CogVideo Sampler (720x480, 49 frames)"
+        },
+        {
+            "id": 4,
+            "type": "CogVideoDecode",
+            "pos": [950, 100],
+            "size": [300, 106],
+            "inputs": [
+                {"name": "pipeline", "type": "COGVIDEOPIPE", "link": 2},
+                {"name": "samples", "type": "LATENT", "link": 5}
+            ],
+            "outputs": [
+                {"name": "images", "type": "IMAGE", "links": [6]}
+            ],
+            "widgets_values": [true, 256, 256],
+            "title": "Decode Video"
+        },
+        {
+            "id": 5,
+            "type": "VHS_VideoCombine",
+            "pos": [950, 300],
+            "size": [315, 270],
+            "inputs": [
+                {"name": "images", "type": "IMAGE", "link": 6}
+            ],
+            "widgets_values": [8, 0, "nerv_cogvideo", "video/h264-mp4", false, true, "", ""],
+            "title": "Save Video (MP4 @ 8fps)"
+        }
+    ],
+    "links": [
+        [1, 1, 0, 2, 0, "COGVIDEOPIPE"],
+        [2, 2, 0, 3, 0, "COGVIDEOPIPE"],
+        [3, 2, 1, 3, 1, "COGCOND"],
+        [4, 2, 2, 3, 2, "COGCOND"],
+        [5, 3, 1, 4, 1, "LATENT"],
+        [6, 4, 0, 5, 0, "IMAGE"]
+    ],
+    "config": {},
+    "extra": {
+        "ds": {"scale": 0.7, "offset": [0, 0]},
+        "_notes": "CogVideoX-5B produces good quality video at 720x480. 49 frames at 8fps = ~6 seconds. Uses ~12GB VRAM in fp16. Increase steps for better quality (50 is good default)."
+    },
+    "version": 0.4
+}

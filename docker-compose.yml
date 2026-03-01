@@ -1,0 +1,115 @@
+###############################################################################
+# PLEASUREDAI OS — Docker Compose
+# Launches the full ComfyUI + NERV UI suite with GPU acceleration
+###############################################################################
+
+version: "3.9"
+
+services:
+  # ── Main ComfyUI + NERV UI Container ──────────────────────────────────────
+  pleasuredai:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: m842/pleasured_ai:latest
+    container_name: nerv-genesis
+    
+    # Use CMD (not entrypoint) for vast.ai compatibility
+    command: /opt/entrypoint.sh
+    
+    # ── GPU Access ─────────────────────────────────────────────────────────
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu, compute, utility, video]
+    
+    # ── Runtime (required for NVIDIA) ──────────────────────────────────────
+    runtime: nvidia
+    
+    # ── Environment ────────────────────────────────────────────────────────
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility,video
+      - COMFYUI_PORT=8188
+      - NERV_UI_PORT=3000
+      # Override these for production:
+      - AUTH_USERNAME=${AUTH_USERNAME:-nerv}
+      - AUTH_PASSWORD=${AUTH_PASSWORD:-genesis}
+      - AUTH_TOKEN=${AUTH_TOKEN:-}
+      # vast.ai will inject these automatically:
+      - PUBLIC_IPADDR=${PUBLIC_IPADDR:-}
+      - VAST_TCP_PORT_80=${VAST_TCP_PORT_80:-}
+      - VAST_TCP_PORT_8188=${VAST_TCP_PORT_8188:-}
+      # HuggingFace token for gated model downloads
+      - HF_TOKEN=${HF_TOKEN:-}
+    
+    # ── Port Mapping ──────────────────────────────────────────────────────
+    ports:
+      - "80:80"         # Nginx reverse proxy (primary entry)
+      - "3000:3000"     # NERV Web UI (direct)
+      - "8188:8188"     # ComfyUI API (direct)
+    
+    # ── Volumes ───────────────────────────────────────────────────────────
+    # Persistent storage for models, outputs, and custom nodes
+    volumes:
+      # Models persist across container restarts
+      - models_data:/opt/comfyui/models
+      # Output files persist
+      - output_data:/opt/comfyui/output
+      # Input files (upload images/videos here)
+      - input_data:/opt/comfyui/input
+      # Custom nodes persist (avoid re-downloading)
+      - custom_nodes_data:/opt/comfyui/custom_nodes
+      # Workflow storage
+      - workflow_data:/opt/comfyui/user
+      # Logs
+      - log_data:/var/log/nerv
+      # HuggingFace cache (shared across runs)
+      - hf_cache:/root/.cache/huggingface
+    
+    # ── Networking ────────────────────────────────────────────────────────
+    networks:
+      - nerv-network
+    
+    # ── Health Check ──────────────────────────────────────────────────────
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8188/system_stats"]
+      interval: 30s
+      timeout: 10s
+      start_period: 120s
+      retries: 3
+    
+    # ── Restart Policy ────────────────────────────────────────────────────
+    restart: unless-stopped
+    
+    # ── Resource Limits ───────────────────────────────────────────────────
+    shm_size: "8g"  # Shared memory for PyTorch DataLoader / large tensors
+    
+    # ── Security ──────────────────────────────────────────────────────────
+    security_opt:
+      - no-new-privileges:true  # Prevent privilege escalation
+
+# ── Named Volumes ────────────────────────────────────────────────────────────
+volumes:
+  models_data:
+    driver: local
+  output_data:
+    driver: local
+  input_data:
+    driver: local
+  custom_nodes_data:
+    driver: local
+  workflow_data:
+    driver: local
+  log_data:
+    driver: local
+  hf_cache:
+    driver: local
+
+# ── Networks ─────────────────────────────────────────────────────────────────
+networks:
+  nerv-network:
+    driver: bridge

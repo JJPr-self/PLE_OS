@@ -1,0 +1,161 @@
+{
+    "last_node_id": 9,
+    "last_link_id": 8,
+    "_comment": "SDXL + ControlNet depth-guided generation. Uses depth map preprocessor from comfyui_controlnet_aux. Requires: ComfyUI-ControlNet-Aux.",
+    "nodes": [
+        {
+            "id": 1,
+            "type": "CheckpointLoaderSimple",
+            "pos": [50, 100],
+            "size": [315, 98],
+            "outputs": [
+                {"name": "MODEL", "type": "MODEL", "links": [1]},
+                {"name": "CLIP", "type": "CLIP", "links": [2, 3]},
+                {"name": "VAE", "type": "VAE", "links": [10]}
+            ],
+            "widgets_values": ["sd_xl_base_1.0.safetensors"],
+            "title": "Load SDXL"
+        },
+        {
+            "id": 8,
+            "type": "ControlNetLoader",
+            "pos": [50, 300],
+            "size": [315, 58],
+            "outputs": [
+                {"name": "CONTROL_NET", "type": "CONTROL_NET", "links": [8]}
+            ],
+            "widgets_values": ["controlnet_depth_sdxl_fp16.safetensors"],
+            "title": "Load ControlNet Depth"
+        },
+        {
+            "id": 9,
+            "type": "LoadImage",
+            "pos": [50, 430],
+            "size": [315, 314],
+            "outputs": [
+                {"name": "IMAGE", "type": "IMAGE", "links": [9]}
+            ],
+            "widgets_values": ["input_image.png", "image"],
+            "title": "Reference Image"
+        },
+        {
+            "id": 10,
+            "type": "DepthAnythingPreprocessor",
+            "pos": [400, 430],
+            "size": [315, 80],
+            "inputs": [
+                {"name": "image", "type": "IMAGE", "link": 9}
+            ],
+            "outputs": [
+                {"name": "IMAGE", "type": "IMAGE", "links": [11]}
+            ],
+            "widgets_values": ["depth_anything_vitl14.pth", 512],
+            "title": "Depth Map (auto-download model)"
+        },
+        {
+            "id": 2,
+            "type": "CLIPTextEncode",
+            "pos": [450, 50],
+            "size": [420, 140],
+            "inputs": [{"name": "clip", "type": "CLIP", "link": 2}],
+            "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "links": [4]}],
+            "widgets_values": ["a beautiful oil painting of the scene, impressionist style, rich colors, dramatic lighting, masterpiece"],
+            "title": "Positive Prompt (Style Transfer)"
+        },
+        {
+            "id": 3,
+            "type": "CLIPTextEncode",
+            "pos": [450, 250],
+            "size": [420, 100],
+            "inputs": [{"name": "clip", "type": "CLIP", "link": 3}],
+            "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "links": [5]}],
+            "widgets_values": ["low quality, blurry, ugly, deformed"],
+            "title": "Negative Prompt"
+        },
+        {
+            "id": 11,
+            "type": "ControlNetApplyAdvanced",
+            "pos": [750, 300],
+            "size": [315, 186],
+            "inputs": [
+                {"name": "positive", "type": "CONDITIONING", "link": 4},
+                {"name": "negative", "type": "CONDITIONING", "link": 5},
+                {"name": "control_net", "type": "CONTROL_NET", "link": 8},
+                {"name": "image", "type": "IMAGE", "link": 11}
+            ],
+            "outputs": [
+                {"name": "positive", "type": "CONDITIONING", "links": [12]},
+                {"name": "negative", "type": "CONDITIONING", "links": [13]}
+            ],
+            "widgets_values": [0.85, 0.0, 1.0],
+            "title": "Apply ControlNet (strength 0.85)"
+        },
+        {
+            "id": 4,
+            "type": "EmptyLatentImage",
+            "pos": [750, 530],
+            "size": [315, 106],
+            "outputs": [{"name": "LATENT", "type": "LATENT", "links": [6]}],
+            "widgets_values": [1024, 1024, 1],
+            "title": "Output Size"
+        },
+        {
+            "id": 5,
+            "type": "KSampler",
+            "pos": [1100, 100],
+            "size": [315, 262],
+            "inputs": [
+                {"name": "model", "type": "MODEL", "link": 1},
+                {"name": "positive", "type": "CONDITIONING", "link": 12},
+                {"name": "negative", "type": "CONDITIONING", "link": 13},
+                {"name": "latent_image", "type": "LATENT", "link": 6}
+            ],
+            "outputs": [{"name": "LATENT", "type": "LATENT", "links": [7]}],
+            "widgets_values": [42, "fixed", 25, 7.5, "dpmpp_2m", "karras", 1.0],
+            "title": "KSampler"
+        },
+        {
+            "id": 6,
+            "type": "VAEDecode",
+            "pos": [1480, 100],
+            "size": [210, 46],
+            "inputs": [
+                {"name": "samples", "type": "LATENT", "link": 7},
+                {"name": "vae", "type": "VAE", "link": 10}
+            ],
+            "outputs": [{"name": "IMAGE", "type": "IMAGE", "links": [14]}],
+            "title": "VAE Decode"
+        },
+        {
+            "id": 7,
+            "type": "SaveImage",
+            "pos": [1480, 250],
+            "size": [315, 270],
+            "inputs": [{"name": "images", "type": "IMAGE", "link": 14}],
+            "widgets_values": ["nerv_controlnet"],
+            "title": "Save Image"
+        }
+    ],
+    "links": [
+        [1, 1, 0, 5, 0, "MODEL"],
+        [2, 1, 1, 2, 0, "CLIP"],
+        [3, 1, 1, 3, 0, "CLIP"],
+        [4, 2, 0, 11, 0, "CONDITIONING"],
+        [5, 3, 0, 11, 1, "CONDITIONING"],
+        [6, 4, 0, 5, 3, "LATENT"],
+        [7, 5, 0, 6, 0, "LATENT"],
+        [8, 8, 0, 11, 2, "CONTROL_NET"],
+        [9, 9, 0, 10, 0, "IMAGE"],
+        [10, 1, 2, 6, 1, "VAE"],
+        [11, 10, 0, 11, 3, "IMAGE"],
+        [12, 11, 0, 5, 1, "CONDITIONING"],
+        [13, 11, 1, 5, 2, "CONDITIONING"],
+        [14, 6, 0, 7, 0, "IMAGE"]
+    ],
+    "config": {},
+    "extra": {
+        "ds": {"scale": 0.6, "offset": [0, 0]},
+        "_notes": "Depth-guided style transfer: Upload any image, it extracts the depth map, then generates a new image in your prompted style while preserving the spatial structure."
+    },
+    "version": 0.4
+}

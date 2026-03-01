@@ -1,0 +1,908 @@
+/**
+ * ═══════════════════════════════════════════════════════════════════════════
+ * NERV GENESIS — Frontend Application Logic
+ * PLEASUREDAI OS v1.0
+ * Handles: auth, ComfyUI API, generation, gallery, system monitoring
+ * ═══════════════════════════════════════════════════════════════════════════
+ */
+
+// ── Configuration ───────────────────────────────────────────────────────────
+const CONFIG = {
+  comfyuiUrl:
+    window.location.protocol + "//" + window.location.hostname + ":8188",
+  comfyuiWs: "ws://" + window.location.hostname + ":8188/ws",
+  apiBase: "/api",
+  pollInterval: 2000,
+  logMaxEntries: 100,
+  sessionKey: "nerv_session",
+  startTime: Date.now(),
+};
+
+// ── State ───────────────────────────────────────────────────────────────────
+const STATE = {
+  authenticated: false,
+  connected: false,
+  ws: null,
+  currentPromptId: null,
+  queueCount: 0,
+  clientId: generateClientId(),
+};
+
+// ── Utility Functions ───────────────────────────────────────────────────────
+function generateClientId() {
+  return "nerv_" + Math.random().toString(36).substr(2, 9);
+}
+
+function formatTime(date) {
+  return new Date(date).toLocaleTimeString("en-US", { hour12: false });
+}
+
+function formatUptime(ms) {
+  const s = Math.floor(ms / 1000);
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  return `${h}h ${m}m`;
+}
+
+// ── Authentication ──────────────────────────────────────────────────────────
+document.getElementById("auth-form").addEventListener("submit", function (e) {
+  e.preventDefault();
+
+  const username = document.getElementById("auth-user").value;
+  const password = document.getElementById("auth-pass").value;
+  const btn = document.getElementById("auth-submit");
+  const error = document.getElementById("auth-error");
+
+  btn.querySelector(".btn-text").style.display = "none";
+  btn.querySelector(".btn-loading").style.display = "inline";
+  error.style.display = "none";
+
+  // Authenticate against config (loaded from auth_config.json)
+  authenticateUser(username, password)
+    .then((token) => {
+      sessionStorage.setItem(CONFIG.sessionKey, token);
+      STATE.authenticated = true;
+      showApp();
+    })
+    .catch((err) => {
+      error.textContent =
+        err.message || "AUTHENTICATION FAILED — INVALID CREDENTIALS";
+      error.style.display = "block";
+      btn.querySelector(".btn-text").style.display = "inline";
+      btn.querySelector(".btn-loading").style.display = "none";
+    });
+});
+
+async function authenticateUser(username, password) {
+  // Try to load auth config from server
+  try {
+    const resp = await fetch("/auth_config.json");
+    if (resp.ok) {
+      const config = await resp.json();
+      if (username === config.username && password === config.password) {
+        return config.token || "local_session_" + Date.now();
+      }
+      throw new Error("INVALID OPERATOR ID OR ACCESS CODE");
+    }
+  } catch (e) {
+    if (e.message.includes("INVALID")) throw e;
+  }
+
+  // Fallback: accept default credentials for local development
+  if (username === "nerv" && password === "genesis") {
+    return "dev_session_" + Date.now();
+  }
+
+  throw new Error("AUTHENTICATION SYSTEM OFFLINE — CONTACT ADMINISTRATOR");
+}
+
+function checkExistingSession() {
+  const session = sessionStorage.getItem(CONFIG.sessionKey);
+  if (session) {
+    STATE.authenticated = true;
+    showApp();
+  }
+}
+
+function showApp() {
+  document.getElementById("auth-overlay").style.display = "none";
+  document.getElementById("app").style.display = "flex";
+  initializeApp();
+}
+
+function logout() {
+  sessionStorage.removeItem(CONFIG.sessionKey);
+  STATE.authenticated = false;
+  if (STATE.ws) STATE.ws.close();
+  document.getElementById("app").style.display = "none";
+  document.getElementById("auth-overlay").style.display = "flex";
+}
+
+// ── Application Initialization ──────────────────────────────────────────────
+function initializeApp() {
+  addLog("info", "NERV Genesis system initializing...");
+
+  // Connect to ComfyUI WebSocket
+  connectWebSocket();
+
+  // Start system monitoring
+  startSystemMonitor();
+
+  // Load ComfyUI iframe
+  document.getElementById("comfyui-iframe").src = CONFIG.comfyuiUrl;
+
+  // Start clock
+  updateClock();
+  setInterval(updateClock, 1000);
+
+  // Setup event listeners
+  setupEventListeners();
+
+  // Scan for models
+  setTimeout(scanModels, 2000);
+
+  addLog("success", "NERV Genesis online — all systems initializing");
+}
+
+// ── WebSocket Connection ────────────────────────────────────────────────────
+function connectWebSocket() {
+  if (STATE.ws && STATE.ws.readyState === WebSocket.OPEN) return;
+
+  try {
+    STATE.ws = new WebSocket(CONFIG.comfyuiWs + "?clientId=" + STATE.clientId);
+
+    STATE.ws.onopen = () => {
+      STATE.connected = true;
+      updateConnectionStatus(true);
+      addLog("success", "WebSocket connected to ComfyUI");
+    };
+
+    STATE.ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        handleWsMessage(data);
+      } catch (e) {
+        // Binary data (preview images)
+        if (event.data instanceof Blob) {
+          handlePreviewImage(event.data);
+        }
+      }
+    };
+
+    STATE.ws.onclose = () => {
+      STATE.connected = false;
+      updateConnectionStatus(false);
+      addLog("warning", "WebSocket disconnected — reconnecting in 5s...");
+      setTimeout(connectWebSocket, 5000);
+    };
+
+    STATE.ws.onerror = (err) => {
+      addLog("error", "WebSocket error — ComfyUI may not be running");
+    };
+  } catch (e) {
+    addLog("error", "Failed to connect WebSocket: " + e.message);
+    setTimeout(connectWebSocket, 5000);
+  }
+}
+
+function handleWsMessage(data) {
+  switch (data.type) {
+    case "status":
+      if (data.data && data.data.status) {
+        STATE.queueCount = data.data.status.exec_info?.queue_remaining || 0;
+        document.getElementById("queue-count").textContent = STATE.queueCount;
+        document.getElementById("queue-depth").textContent = STATE.queueCount;
+        updateQueueBar();
+      }
+      break;
+
+    case "progress":
+      if (data.data) {
+        const pct = Math.round((data.data.value / data.data.max) * 100);
+        updateProgress(pct, `Step ${data.data.value}/${data.data.max}`);
+      }
+      break;
+
+    case "executing":
+      if (data.data && data.data.node) {
+        updateProgress(-1, `Executing node: ${data.data.node}`);
+      } else if (data.data && data.data.node === null) {
+        // Execution complete
+        hideProgress();
+        addLog("success", "Generation complete!");
+        loadLatestOutput();
+      }
+      break;
+
+    case "executed":
+      if (data.data && data.data.output) {
+        handleExecutionOutput(data.data.output);
+      }
+      break;
+
+    case "execution_error":
+      hideProgress();
+      addLog(
+        "error",
+        "Execution error: " + (data.data?.exception_message || "Unknown"),
+      );
+      break;
+  }
+}
+
+function handlePreviewImage(blob) {
+  const url = URL.createObjectURL(blob);
+  const img = document.getElementById("preview-image");
+  img.src = url;
+  img.style.display = "block";
+  document.getElementById("preview-placeholder").style.display = "none";
+}
+
+function handleExecutionOutput(output) {
+  if (output.images) {
+    output.images.forEach((img) => {
+      const imgUrl = `${CONFIG.comfyuiUrl}/view?filename=${img.filename}&subfolder=${img.subfolder || ""}&type=${img.type}`;
+      const previewImg = document.getElementById("preview-image");
+      previewImg.src = imgUrl;
+      previewImg.style.display = "block";
+      document.getElementById("preview-video").style.display = "none";
+      document.getElementById("preview-placeholder").style.display = "none";
+      document.getElementById("btn-download").style.display = "inline-block";
+    });
+  }
+
+  if (output.gifs || output.videos) {
+    const videos = output.gifs || output.videos;
+    videos.forEach((vid) => {
+      const vidUrl = `${CONFIG.comfyuiUrl}/view?filename=${vid.filename}&subfolder=${vid.subfolder || ""}&type=${vid.type}`;
+      const previewVid = document.getElementById("preview-video");
+      previewVid.src = vidUrl;
+      previewVid.style.display = "block";
+      document.getElementById("preview-image").style.display = "none";
+      document.getElementById("preview-placeholder").style.display = "none";
+      document.getElementById("btn-download").style.display = "inline-block";
+    });
+  }
+}
+
+// ── Connection Status ───────────────────────────────────────────────────────
+function updateConnectionStatus(connected) {
+  const indicator = document.getElementById("sync-indicator");
+  if (connected) {
+    indicator.classList.add("connected");
+    indicator.querySelector(".sync-text").textContent = "LINKED";
+    document.getElementById("sys-status-badge").textContent = "OPERATIONAL";
+    document.getElementById("sys-status-badge").style.background =
+      "rgba(34, 197, 94, 0.15)";
+    document.getElementById("sys-status-badge").style.color = "#22c55e";
+  } else {
+    indicator.classList.remove("connected");
+    indicator.querySelector(".sync-text").textContent = "OFFLINE";
+    document.getElementById("sys-status-badge").textContent = "DISCONNECTED";
+    document.getElementById("sys-status-badge").style.background =
+      "rgba(239, 68, 68, 0.15)";
+    document.getElementById("sys-status-badge").style.color = "#ef4444";
+  }
+}
+
+// ── System Monitoring ───────────────────────────────────────────────────────
+function startSystemMonitor() {
+  fetchSystemStats();
+  setInterval(fetchSystemStats, CONFIG.pollInterval);
+}
+
+async function fetchSystemStats() {
+  try {
+    const resp = await fetch(CONFIG.comfyuiUrl + "/system_stats");
+    if (!resp.ok) return;
+
+    const data = await resp.json();
+
+    if (data.devices && data.devices.length > 0) {
+      const gpu = data.devices[0];
+      const vramTotal = (gpu.vram_total / 1024 ** 3).toFixed(1);
+      const vramFree = (gpu.vram_free / 1024 ** 3).toFixed(1);
+      const vramUsed = (vramTotal - vramFree).toFixed(1);
+      const vramPct = Math.round((vramUsed / vramTotal) * 100);
+
+      document.getElementById("gpu-name").textContent = gpu.name || "GPU";
+      document.getElementById("vram-usage").textContent =
+        `${vramUsed}/${vramTotal}GB`;
+      document.getElementById("vram-detail").textContent =
+        `${vramUsed}/${vramTotal} GB`;
+
+      // Update bar
+      document.getElementById("vram-bar").style.width = vramPct + "%";
+
+      // Update status dots
+      const gpuDot = document.querySelector("#gpu-status .status-dot");
+      const vramDot = document.querySelector("#vram-status .status-dot");
+      gpuDot.className = "status-dot";
+      vramDot.className = vramPct > 90 ? "status-dot" : "status-dot";
+      vramDot.style.background =
+        vramPct > 90 ? "#ef4444" : vramPct > 70 ? "#f97316" : "#22c55e";
+      vramDot.style.boxShadow =
+        vramPct > 90
+          ? "0 0 8px rgba(239, 68, 68, 0.5)"
+          : "0 0 8px rgba(34, 197, 94, 0.5)";
+      gpuDot.style.background = "#22c55e";
+      gpuDot.style.boxShadow = "0 0 8px rgba(34, 197, 94, 0.5)";
+    }
+  } catch (e) {
+    // ComfyUI not reachable
+  }
+}
+
+function updateQueueBar() {
+  const pct = Math.min(STATE.queueCount * 20, 100);
+  document.getElementById("queue-bar").style.width = pct + "%";
+
+  const dot = document.querySelector("#queue-status .status-dot");
+  dot.style.background = STATE.queueCount > 0 ? "#f97316" : "#22c55e";
+}
+
+// ── Generation ──────────────────────────────────────────────────────────────
+async function submitGeneration() {
+  const mode =
+    document.querySelector('input[name="gen-mode"]:checked')?.value ||
+    "txt2img";
+  const prompt = document.getElementById("param-prompt").value;
+  const negative = document.getElementById("param-negative").value;
+  const width = parseInt(document.getElementById("param-width").value);
+  const height = parseInt(document.getElementById("param-height").value);
+  const steps = parseInt(document.getElementById("param-steps").value);
+  const cfg = parseFloat(document.getElementById("param-cfg").value);
+  const seed = parseInt(document.getElementById("param-seed").value);
+  const model = document.getElementById("param-model").value;
+
+  if (!prompt) {
+    addLog("warning", "Prompt is empty — please enter a description");
+    return;
+  }
+
+  addLog(
+    "info",
+    `Submitting ${mode} generation: "${prompt.substring(0, 50)}..."`,
+  );
+  showProgress(0, "Queuing generation...");
+
+  // Build ComfyUI workflow based on mode
+  const workflow = buildWorkflow(mode, {
+    prompt,
+    negative,
+    width,
+    height,
+    steps,
+    cfg,
+    seed,
+    model,
+  });
+
+  try {
+    const resp = await fetch(CONFIG.comfyuiUrl + "/prompt", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        prompt: workflow,
+        client_id: STATE.clientId,
+      }),
+    });
+
+    if (!resp.ok) {
+      const err = await resp.json();
+      throw new Error(err.error?.message || "Failed to queue prompt");
+    }
+
+    const result = await resp.json();
+    STATE.currentPromptId = result.prompt_id;
+    addLog(
+      "success",
+      `Generation queued (ID: ${result.prompt_id.substring(0, 8)}...)`,
+    );
+  } catch (e) {
+    hideProgress();
+    addLog("error", "Generation failed: " + e.message);
+  }
+}
+
+function buildWorkflow(mode, params) {
+  // Basic text-to-image workflow for SDXL
+  // This is a simplified workflow — ComfyUI users can load full workflows via the native UI
+  const actualSeed =
+    params.seed === -1 ? Math.floor(Math.random() * 999999999) : params.seed;
+
+  const modelMap = {
+    sdxl: "sd_xl_base_1.0.safetensors",
+    wan22: "wan2.2_t2v_14b.safetensors",
+    ltx: "ltx-video-2b-v0.9.1.safetensors",
+    cogvideo: "cogvideox_5b.safetensors",
+  };
+
+  const checkpoint = modelMap[params.model] || modelMap["sdxl"];
+
+  if (mode === "txt2img") {
+    return {
+      1: {
+        class_type: "CheckpointLoaderSimple",
+        inputs: { ckpt_name: checkpoint },
+      },
+      2: {
+        class_type: "CLIPTextEncode",
+        inputs: {
+          text: params.prompt,
+          clip: ["1", 1],
+        },
+      },
+      3: {
+        class_type: "CLIPTextEncode",
+        inputs: {
+          text: params.negative,
+          clip: ["1", 1],
+        },
+      },
+      4: {
+        class_type: "EmptyLatentImage",
+        inputs: {
+          width: params.width,
+          height: params.height,
+          batch_size: 1,
+        },
+      },
+      5: {
+        class_type: "KSampler",
+        inputs: {
+          seed: actualSeed,
+          steps: params.steps,
+          cfg: params.cfg,
+          sampler_name: "dpmpp_2m",
+          scheduler: "karras",
+          denoise: 1.0,
+          model: ["1", 0],
+          positive: ["2", 0],
+          negative: ["3", 0],
+          latent_image: ["4", 0],
+        },
+      },
+      6: {
+        class_type: "VAEDecode",
+        inputs: {
+          samples: ["5", 0],
+          vae: ["1", 2],
+        },
+      },
+      7: {
+        class_type: "SaveImage",
+        inputs: {
+          filename_prefix: "nerv_genesis",
+          images: ["6", 0],
+        },
+      },
+    };
+  }
+
+  // For video modes, direct users to load workflows via ComfyUI native UI
+  // as video workflows are complex and model-specific
+  addLog(
+    "info",
+    `${mode} mode: Opening ComfyUI editor for advanced workflow...`,
+  );
+  switchTab("comfyui");
+  return null;
+}
+
+// ── Workflow Shortcuts ──────────────────────────────────────────────────────
+function openWorkflow(type) {
+  addLog("info", `Loading ${type} workflow in ComfyUI...`);
+  switchTab("comfyui");
+  // Could load specific workflow JSON into ComfyUI via API
+}
+
+function openComfyUI() {
+  switchTab("comfyui");
+  addLog("info", "Opened ComfyUI native editor");
+}
+
+// ── Progress UI ─────────────────────────────────────────────────────────────
+function showProgress(pct, label) {
+  const overlay = document.getElementById("progress-overlay");
+  overlay.style.display = "flex";
+  updateProgress(pct, label);
+}
+
+function updateProgress(pct, label) {
+  const circle = document.getElementById("progress-circle");
+  const text = document.getElementById("progress-text");
+  const lbl = document.getElementById("progress-label");
+
+  if (pct >= 0) {
+    const circumference = 2 * Math.PI * 54; // radius=54
+    const offset = circumference - (pct / 100) * circumference;
+    if (circle) {
+      circle.style.strokeDasharray = circumference;
+      circle.style.strokeDashoffset = offset;
+      circle.style.stroke = `hsl(${300 + pct * 0.6}, 80%, 60%)`;
+    }
+    text.textContent = pct + "%";
+  } else {
+    text.textContent = "⏳";
+  }
+
+  if (lbl && label) lbl.textContent = label;
+}
+
+function hideProgress() {
+  document.getElementById("progress-overlay").style.display = "none";
+}
+
+// ── Gallery ─────────────────────────────────────────────────────────────────
+async function refreshGallery() {
+  try {
+    const resp = await fetch(CONFIG.comfyuiUrl + "/history?max_items=50");
+    if (!resp.ok) return;
+
+    const history = await resp.json();
+    const grid = document.getElementById("gallery-grid");
+    const recentGrid = document.getElementById("recent-outputs");
+    grid.innerHTML = "";
+    recentGrid.innerHTML = "";
+
+    let count = 0;
+
+    for (const [id, item] of Object.entries(history).reverse()) {
+      if (!item.outputs) continue;
+
+      for (const [nodeId, output] of Object.entries(item.outputs)) {
+        if (output.images) {
+          output.images.forEach((img) => {
+            const url = `${CONFIG.comfyuiUrl}/view?filename=${img.filename}&subfolder=${img.subfolder || ""}&type=${img.type}`;
+            const el = createGalleryItem(url, "image", img.filename);
+            grid.appendChild(el);
+            if (count < 6) recentGrid.appendChild(el.cloneNode(true));
+            count++;
+          });
+        }
+        if (output.gifs) {
+          output.gifs.forEach((vid) => {
+            const url = `${CONFIG.comfyuiUrl}/view?filename=${vid.filename}&subfolder=${vid.subfolder || ""}&type=${vid.type}`;
+            const el = createGalleryItem(url, "video", vid.filename);
+            grid.appendChild(el);
+            if (count < 6) recentGrid.appendChild(el.cloneNode(true));
+            count++;
+          });
+        }
+      }
+    }
+
+    if (count === 0) {
+      grid.innerHTML =
+        '<div class="gallery-placeholder"><p>No outputs found</p></div>';
+      recentGrid.innerHTML =
+        '<div class="recent-placeholder"><span>No outputs yet</span><span class="sub">Generate your first creation above</span></div>';
+    }
+  } catch (e) {
+    addLog("error", "Failed to load gallery: " + e.message);
+  }
+}
+
+function createGalleryItem(url, type, filename) {
+  const div = document.createElement("div");
+  div.className = "gallery-item";
+  div.title = filename;
+  div.onclick = () => window.open(url, "_blank");
+
+  if (type === "image") {
+    const img = document.createElement("img");
+    img.src = url;
+    img.alt = filename;
+    img.loading = "lazy";
+    div.appendChild(img);
+  } else {
+    const vid = document.createElement("video");
+    vid.src = url;
+    vid.muted = true;
+    vid.loop = true;
+    vid.onmouseenter = () => vid.play();
+    vid.onmouseleave = () => vid.pause();
+    div.appendChild(vid);
+  }
+
+  return div;
+}
+
+async function loadLatestOutput() {
+  try {
+    if (STATE.currentPromptId) {
+      const resp = await fetch(
+        CONFIG.comfyuiUrl + "/history/" + STATE.currentPromptId,
+      );
+      if (resp.ok) {
+        const data = await resp.json();
+        const item = data[STATE.currentPromptId];
+        if (item && item.outputs) {
+          for (const output of Object.values(item.outputs)) {
+            handleExecutionOutput(output);
+          }
+        }
+      }
+    }
+  } catch (e) {
+    // Silent fail
+  }
+}
+
+// ── Model Scanner ───────────────────────────────────────────────────────────
+async function scanModels() {
+  try {
+    // Fetch available models from ComfyUI API
+    const endpoints = {
+      "models-checkpoints": "/object_info/CheckpointLoaderSimple",
+      "models-loras": "/object_info/LoraLoader",
+      "models-vaes": "/object_info/VAELoader",
+    };
+
+    for (const [elementId, endpoint] of Object.entries(endpoints)) {
+      try {
+        const resp = await fetch(CONFIG.comfyuiUrl + endpoint);
+        if (!resp.ok) continue;
+
+        const data = await resp.json();
+        const container = document.getElementById(elementId);
+        if (!container) continue;
+
+        container.innerHTML = "";
+
+        // Extract model names from the node info
+        let models = [];
+        const nodeInfo = Object.values(data)[0];
+        if (nodeInfo?.input?.required) {
+          const firstParam = Object.values(nodeInfo.input.required)[0];
+          if (Array.isArray(firstParam) && Array.isArray(firstParam[0])) {
+            models = firstParam[0];
+          }
+        }
+
+        if (models.length === 0) {
+          container.innerHTML =
+            '<p class="model-placeholder">No models found in this category</p>';
+          continue;
+        }
+
+        models.forEach((name) => {
+          const item = document.createElement("div");
+          item.className = "model-item";
+
+          const icon = document.createElement("span");
+          icon.className = "model-icon";
+          icon.textContent = elementId.includes("checkpoint")
+            ? "🧠"
+            : elementId.includes("lora")
+              ? "🔗"
+              : "🎨";
+
+          const nameEl = document.createElement("span");
+          nameEl.className = "model-name";
+          nameEl.textContent = name;
+
+          item.appendChild(icon);
+          item.appendChild(nameEl);
+          container.appendChild(item);
+        });
+
+        addLog(
+          "info",
+          `Found ${models.length} models in ${elementId.replace("models-", "")}`,
+        );
+      } catch (e) {
+        // Individual endpoint failure
+      }
+    }
+  } catch (e) {
+    addLog("warning", "Model scan failed — ComfyUI may not be ready");
+  }
+}
+
+// ── Activity Log ────────────────────────────────────────────────────────────
+function addLog(level, message) {
+  const container = document.getElementById("activity-log");
+  if (!container) return;
+
+  const entry = document.createElement("div");
+  entry.className = `log-entry log-${level}`;
+
+  const time = document.createElement("span");
+  time.className = "log-time";
+  time.textContent = formatTime(Date.now());
+
+  const msg = document.createElement("span");
+  msg.className = "log-msg";
+  msg.textContent = message;
+
+  entry.appendChild(time);
+  entry.appendChild(msg);
+  container.appendChild(entry);
+
+  // Scroll to bottom
+  container.scrollTop = container.scrollHeight;
+
+  // Limit entries
+  while (container.children.length > CONFIG.logMaxEntries) {
+    container.removeChild(container.firstChild);
+  }
+}
+
+function clearLog() {
+  const container = document.getElementById("activity-log");
+  container.innerHTML = "";
+  addLog("info", "Log cleared");
+}
+
+// ── Tab Navigation ──────────────────────────────────────────────────────────
+function setupEventListeners() {
+  // Tab switching
+  document.querySelectorAll(".nav-tab").forEach((tab) => {
+    tab.addEventListener("click", () => switchTab(tab.dataset.tab));
+  });
+
+  // Mode selection
+  document.querySelectorAll(".mode-option").forEach((option) => {
+    option.addEventListener("click", () => {
+      document
+        .querySelectorAll(".mode-option")
+        .forEach((o) => o.classList.remove("active"));
+      option.classList.add("active");
+      option.querySelector("input").checked = true;
+      updateModelOptions(option.dataset.mode);
+    });
+  });
+
+  // Range sliders
+  document.getElementById("param-steps").addEventListener("input", (e) => {
+    document.getElementById("steps-val").textContent = e.target.value;
+  });
+
+  document.getElementById("param-cfg").addEventListener("input", (e) => {
+    document.getElementById("cfg-val").textContent = parseFloat(
+      e.target.value,
+    ).toFixed(1);
+  });
+
+  // Buttons
+  document
+    .getElementById("btn-settings")
+    .addEventListener("click", () => openModal("settings-modal"));
+  document.getElementById("btn-logs").addEventListener("click", () => {
+    openModal("log-modal");
+    loadSystemLogs();
+  });
+  document.getElementById("btn-logout").addEventListener("click", logout);
+}
+
+function switchTab(tabName) {
+  document
+    .querySelectorAll(".nav-tab")
+    .forEach((t) => t.classList.remove("active"));
+  document
+    .querySelectorAll(".panel")
+    .forEach((p) => p.classList.remove("active"));
+
+  const tab = document.querySelector(`[data-tab="${tabName}"]`);
+  const panel = document.getElementById(`panel-${tabName}`);
+
+  if (tab) tab.classList.add("active");
+  if (panel) panel.classList.add("active");
+
+  // Load ComfyUI iframe on first visit
+  if (tabName === "comfyui") {
+    const iframe = document.getElementById("comfyui-iframe");
+    if (!iframe.src || iframe.src === "about:blank") {
+      iframe.src = CONFIG.comfyuiUrl;
+    }
+  }
+
+  if (tabName === "gallery") refreshGallery();
+}
+
+function updateModelOptions(mode) {
+  const select = document.getElementById("param-model");
+  select.innerHTML = "";
+
+  const options = {
+    txt2img: [{ value: "sdxl", text: "SDXL Base 1.0" }],
+    txt2vid: [
+      { value: "wan22", text: "WAN 2.2 (14B)" },
+      { value: "ltx", text: "LTX Video" },
+      { value: "cogvideo", text: "CogVideoX-5B" },
+    ],
+    img2vid: [
+      { value: "wan22", text: "WAN 2.2 (14B)" },
+      { value: "ltx", text: "LTX Video" },
+    ],
+    faceswap: [{ value: "sdxl", text: "SDXL + ReActor" }],
+  };
+
+  (options[mode] || options["txt2img"]).forEach((opt) => {
+    const el = document.createElement("option");
+    el.value = opt.value;
+    el.textContent = opt.text;
+    select.appendChild(el);
+  });
+}
+
+// ── Modals ──────────────────────────────────────────────────────────────────
+function openModal(id) {
+  document.getElementById(id).style.display = "flex";
+}
+
+function closeModal(id) {
+  document.getElementById(id).style.display = "none";
+}
+
+async function loadSystemLogs() {
+  const content = document.getElementById("system-log-content");
+  content.textContent = "Loading system logs...";
+
+  try {
+    const resp = await fetch(CONFIG.comfyuiUrl + "/system_stats");
+    if (resp.ok) {
+      const data = await resp.json();
+      content.textContent = JSON.stringify(data, null, 2);
+    }
+  } catch (e) {
+    content.textContent =
+      "System logs unavailable — ComfyUI connection failed\n\nCheck:\n  1. Is ComfyUI running?\n  2. Port 8188 accessible?\n  3. Network connectivity?";
+  }
+}
+
+// ── Clock & Uptime ──────────────────────────────────────────────────────────
+function updateClock() {
+  const now = new Date();
+  document.getElementById("footer-time").textContent = formatTime(now);
+  document.getElementById("footer-uptime").textContent =
+    "UPTIME: " + formatUptime(Date.now() - CONFIG.startTime);
+}
+
+// ── Download ────────────────────────────────────────────────────────────────
+function downloadOutput() {
+  const img = document.getElementById("preview-image");
+  const vid = document.getElementById("preview-video");
+
+  const url = img.style.display !== "none" ? img.src : vid.src;
+  if (!url) return;
+
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "nerv_genesis_output";
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// ── Keyboard Shortcuts ──────────────────────────────────────────────────────
+document.addEventListener("keydown", (e) => {
+  if (!STATE.authenticated) return;
+
+  // Ctrl+Enter: Generate
+  if (e.ctrlKey && e.key === "Enter") {
+    e.preventDefault();
+    submitGeneration();
+  }
+
+  // Escape: Close modals
+  if (e.key === "Escape") {
+    document
+      .querySelectorAll(".modal")
+      .forEach((m) => (m.style.display = "none"));
+  }
+});
+
+// Close modals on backdrop click
+document.querySelectorAll(".modal").forEach((modal) => {
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) modal.style.display = "none";
+  });
+});
+
+// ── Initialize ──────────────────────────────────────────────────────────────
+document.addEventListener("DOMContentLoaded", () => {
+  checkExistingSession();
+});

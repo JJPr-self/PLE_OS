@@ -1,0 +1,49 @@
+# ── ComfyUI Extra Model Paths Configuration (v2) ────────────────────────────
+# Maps model type → directory path relative to base_path
+# These match the Docker volume mounts and the directories created by Dockerfile
+
+comfyui:
+  base_path: /opt/comfyui/models
+
+  # Core image models
+  checkpoints: checkpoints
+  vae: vae
+  loras: loras
+  embeddings: embeddings
+  controlnet: controlnet
+  upscale_models: upscale_models
+
+  # CLIP models
+  clip: clip
+  clip_vision: clip_vision
+
+  # Diffusion / video model weights
+  diffusion_models: diffusion_models
+  text_encoders: text_encoders
+  unet: unet
+
+  # Face swap / identity models
+  insightface: insightface
+  facerestore_models: facerestore_models
+
+  # Style models (IP-Adapter style references)
+  style_models: style_models
+
+  # IP-Adapter models
+  ipadapter: ipadapter
+
+  # InstantID models
+  instantid: instantid
+
+  # PuLID models
+  pulid: pulid
+
+  # LivePortrait models
+  liveportrait: liveportrait
+
+  # AnimateDiff motion modules
+  animatediff_models: animatediff_models
+  animatediff_motion_lora: animatediff_motion_lora
+
+  # Detection models (YOLO, SAM via Impact Pack)
+  ultralytics: ultralytics

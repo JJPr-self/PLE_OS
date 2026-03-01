@@ -1,0 +1,156 @@
+{
+    "last_node_id": 10,
+    "last_link_id": 10,
+    "_comment": "SDXL + IP-Adapter workflow for consistent face/style generation. Upload a reference image and generate new images maintaining the same face or style. Requires: ComfyUI_IPAdapter_plus.",
+    "nodes": [
+        {
+            "id": 1,
+            "type": "CheckpointLoaderSimple",
+            "pos": [50, 100],
+            "size": [315, 98],
+            "outputs": [
+                {"name": "MODEL", "type": "MODEL", "links": [1]},
+                {"name": "CLIP", "type": "CLIP", "links": [2, 3]},
+                {"name": "VAE", "type": "VAE", "links": [10]}
+            ],
+            "widgets_values": ["sd_xl_base_1.0.safetensors"],
+            "title": "Load SDXL"
+        },
+        {
+            "id": 8,
+            "type": "IPAdapterModelLoader",
+            "pos": [50, 300],
+            "size": [315, 58],
+            "outputs": [
+                {"name": "IPADAPTER", "type": "IPADAPTER", "links": [8]}
+            ],
+            "widgets_values": ["ip-adapter-plus_sdxl_vit-h.safetensors"],
+            "title": "Load IP-Adapter Plus"
+        },
+        {
+            "id": 9,
+            "type": "CLIPVisionLoader",
+            "pos": [50, 430],
+            "size": [315, 58],
+            "outputs": [
+                {"name": "CLIP_VISION", "type": "CLIP_VISION", "links": [9]}
+            ],
+            "widgets_values": ["ip_adapter_clip_vit_h.safetensors"],
+            "title": "Load CLIP Vision"
+        },
+        {
+            "id": 10,
+            "type": "LoadImage",
+            "pos": [50, 560],
+            "size": [315, 314],
+            "outputs": [
+                {"name": "IMAGE", "type": "IMAGE", "links": [11]}
+            ],
+            "widgets_values": ["reference.png", "image"],
+            "title": "Reference Face/Style Image"
+        },
+        {
+            "id": 11,
+            "type": "IPAdapterApply",
+            "pos": [450, 300],
+            "size": [315, 250],
+            "inputs": [
+                {"name": "ipadapter", "type": "IPADAPTER", "link": 8},
+                {"name": "clip_vision", "type": "CLIP_VISION", "link": 9},
+                {"name": "image", "type": "IMAGE", "link": 11},
+                {"name": "model", "type": "MODEL", "link": 1}
+            ],
+            "outputs": [
+                {"name": "MODEL", "type": "MODEL", "links": [12]}
+            ],
+            "widgets_values": [0.8, "strong style transfer", "concat", 0.0, 1.0, false],
+            "title": "Apply IP-Adapter (weight 0.8)"
+        },
+        {
+            "id": 2,
+            "type": "CLIPTextEncode",
+            "pos": [450, 50],
+            "size": [420, 140],
+            "inputs": [{"name": "clip", "type": "CLIP", "link": 2}],
+            "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "links": [4]}],
+            "widgets_values": ["a professional portrait photo in a modern studio, soft lighting, shallow depth of field, 8k quality, masterpiece"],
+            "title": "Scene Description"
+        },
+        {
+            "id": 3,
+            "type": "CLIPTextEncode",
+            "pos": [450, 220],
+            "size": [420, 80],
+            "inputs": [{"name": "clip", "type": "CLIP", "link": 3}],
+            "outputs": [{"name": "CONDITIONING", "type": "CONDITIONING", "links": [5]}],
+            "widgets_values": ["ugly, deformed, blurry, low quality"],
+            "title": "Negative"
+        },
+        {
+            "id": 4,
+            "type": "EmptyLatentImage",
+            "pos": [800, 500],
+            "size": [315, 106],
+            "outputs": [{"name": "LATENT", "type": "LATENT", "links": [6]}],
+            "widgets_values": [1024, 1024, 1],
+            "title": "Output Size"
+        },
+        {
+            "id": 5,
+            "type": "KSampler",
+            "pos": [900, 100],
+            "size": [315, 262],
+            "inputs": [
+                {"name": "model", "type": "MODEL", "link": 12},
+                {"name": "positive", "type": "CONDITIONING", "link": 4},
+                {"name": "negative", "type": "CONDITIONING", "link": 5},
+                {"name": "latent_image", "type": "LATENT", "link": 6}
+            ],
+            "outputs": [{"name": "LATENT", "type": "LATENT", "links": [7]}],
+            "widgets_values": [42, "fixed", 25, 7.0, "dpmpp_2m", "karras", 1.0],
+            "title": "KSampler"
+        },
+        {
+            "id": 6,
+            "type": "VAEDecode",
+            "pos": [1280, 100],
+            "size": [210, 46],
+            "inputs": [
+                {"name": "samples", "type": "LATENT", "link": 7},
+                {"name": "vae", "type": "VAE", "link": 10}
+            ],
+            "outputs": [{"name": "IMAGE", "type": "IMAGE", "links": [14]}],
+            "title": "VAE Decode"
+        },
+        {
+            "id": 7,
+            "type": "SaveImage",
+            "pos": [1280, 250],
+            "size": [315, 270],
+            "inputs": [{"name": "images", "type": "IMAGE", "link": 14}],
+            "widgets_values": ["nerv_ipadapter"],
+            "title": "Save Image"
+        }
+    ],
+    "links": [
+        [1, 1, 0, 11, 3, "MODEL"],
+        [2, 1, 1, 2, 0, "CLIP"],
+        [3, 1, 1, 3, 0, "CLIP"],
+        [4, 2, 0, 5, 1, "CONDITIONING"],
+        [5, 3, 0, 5, 2, "CONDITIONING"],
+        [6, 4, 0, 5, 3, "LATENT"],
+        [7, 5, 0, 6, 0, "LATENT"],
+        [8, 8, 0, 11, 0, "IPADAPTER"],
+        [9, 9, 0, 11, 1, "CLIP_VISION"],
+        [10, 1, 2, 6, 1, "VAE"],
+        [11, 10, 0, 11, 2, "IMAGE"],
+        [12, 11, 0, 5, 0, "MODEL"],
+        [14, 6, 0, 7, 0, "IMAGE"]
+    ],
+    "config": {},
+    "extra": {
+        "ds": {"scale": 0.6, "offset": [0, 0]},
+        "_notes": "Upload a reference face/style image. IP-Adapter will maintain that face or style in the generated output. Adjust weight (0.5-1.0) to control reference influence. Higher weight = closer to reference."
+    },
+    "version": 0.4
+}

@@ -1,0 +1,48 @@
+{
+    "_comment": "LTX Video Image-to-Video workflow — requires LTX Video custom node",
+    "1": {
+        "class_type": "LTXVLoader",
+        "inputs": {
+            "ckpt_name": "ltx-video-2b-v0.9.1.safetensors"
+        },
+        "_meta": { "title": "Load LTX Video Model" }
+    },
+    "2": {
+        "class_type": "LoadImage",
+        "inputs": {
+            "image": "input_image.png"
+        },
+        "_meta": { "title": "Load Source Image" }
+    },
+    "3": {
+        "class_type": "CLIPTextEncode",
+        "inputs": {
+            "text": "slow camera pan revealing the scene, gentle wind animation, photorealistic motion",
+            "clip": ["1", 1]
+        },
+        "_meta": { "title": "Motion Prompt" }
+    },
+    "4": {
+        "class_type": "LTXVSampler",
+        "inputs": {
+            "model": ["1", 0],
+            "positive": ["3", 0],
+            "image": ["2", 0],
+            "seed": 99999,
+            "steps": 25,
+            "cfg": 3.5,
+            "num_frames": 49
+        },
+        "_meta": { "title": "LTX Video Sampler" }
+    },
+    "5": {
+        "class_type": "VHS_VideoCombine",
+        "inputs": {
+            "images": ["4", 0],
+            "frame_rate": 24,
+            "filename_prefix": "nerv_img2vid_ltx",
+            "format": "video/h264-mp4"
+        },
+        "_meta": { "title": "Save Video" }
+    }
+}

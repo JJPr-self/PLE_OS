@@ -1,0 +1,92 @@
+{
+    "last_node_id": 12,
+    "last_link_id": 11,
+    "_comment": "ReActor face swap workflow with CodeFormer restoration. Requires: comfyui-reactor-node custom node + InsightFace models.",
+    "nodes": [
+        {
+            "id": 1,
+            "type": "LoadImage",
+            "pos": [50, 50],
+            "size": [315, 314],
+            "outputs": [
+                {"name": "IMAGE", "type": "IMAGE", "links": [1]},
+                {"name": "MASK", "type": "MASK", "links": []}
+            ],
+            "widgets_values": ["target_face.png", "image"],
+            "title": "Target Image (Face destination)"
+        },
+        {
+            "id": 2,
+            "type": "LoadImage",
+            "pos": [50, 430],
+            "size": [315, 314],
+            "outputs": [
+                {"name": "IMAGE", "type": "IMAGE", "links": [2]},
+                {"name": "MASK", "type": "MASK", "links": []}
+            ],
+            "widgets_values": ["source_face.png", "image"],
+            "title": "Source Face (Face to use)"
+        },
+        {
+            "id": 3,
+            "type": "ReActorFaceSwap",
+            "pos": [500, 100],
+            "size": [350, 450],
+            "inputs": [
+                {"name": "input_image", "type": "IMAGE", "link": 1},
+                {"name": "source_image", "type": "IMAGE", "link": 2}
+            ],
+            "outputs": [
+                {"name": "IMAGE", "type": "IMAGE", "links": [3]},
+                {"name": "FACE_MODEL", "type": "FACE_MODEL", "links": []}
+            ],
+            "widgets_values": [
+                true,
+                "inswapper_128.onnx",
+                "retinaface_resnet50",
+                "codeformer-v0.1.0.pth",
+                1.0,
+                0.7,
+                "no",
+                "no",
+                "0",
+                "0",
+                1
+            ],
+            "title": "ReActor Face Swap"
+        },
+        {
+            "id": 4,
+            "type": "PreviewImage",
+            "pos": [920, 50],
+            "size": [315, 314],
+            "inputs": [
+                {"name": "images", "type": "IMAGE", "link": 3}
+            ],
+            "title": "Preview Result"
+        },
+        {
+            "id": 5,
+            "type": "SaveImage",
+            "pos": [920, 430],
+            "size": [315, 270],
+            "inputs": [
+                {"name": "images", "type": "IMAGE", "link": 3}
+            ],
+            "widgets_values": ["nerv_faceswap"],
+            "title": "Save Result"
+        }
+    ],
+    "links": [
+        [1, 1, 0, 3, 0, "IMAGE"],
+        [2, 2, 0, 3, 1, "IMAGE"],
+        [3, 3, 0, 4, 0, "IMAGE"],
+        [3, 3, 0, 5, 0, "IMAGE"]
+    ],
+    "config": {},
+    "extra": {
+        "ds": {"scale": 0.8, "offset": [0, 0]},
+        "_notes": "Upload target image (the image to modify) and source face (the face you want). ReActor handles detection, alignment, swap, and CodeFormer restoration automatically. codeformer_weight 0.7 gives good balance of quality and identity preservation."
+    },
+    "version": 0.4
+}

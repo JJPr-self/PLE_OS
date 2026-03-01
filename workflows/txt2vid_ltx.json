@@ -1,0 +1,102 @@
+{
+    "last_node_id": 8,
+    "last_link_id": 7,
+    "_comment": "LTX Video text-to-video workflow. Fast and lightweight — great for RTX 3090. Requires: ComfyUI-LTXVideo (official Lightricks node), ComfyUI-VideoHelperSuite.",
+    "nodes": [
+        {
+            "id": 1,
+            "type": "LTXVLoader",
+            "pos": [50, 100],
+            "size": [350, 100],
+            "outputs": [
+                {"name": "model", "type": "MODEL", "links": [1]},
+                {"name": "vae", "type": "VAE", "links": [5]}
+            ],
+            "widgets_values": ["ltx-video-2b-v0.9.1.safetensors"],
+            "title": "Load LTX Video 2B"
+        },
+        {
+            "id": 2,
+            "type": "CLIPTextEncode",
+            "pos": [50, 280],
+            "size": [420, 170],
+            "inputs": [
+                {"name": "clip", "type": "CLIP", "link": null}
+            ],
+            "outputs": [
+                {"name": "CONDITIONING", "type": "CONDITIONING", "links": [2]}
+            ],
+            "widgets_values": ["A serene Japanese garden with cherry blossoms gently falling, koi fish swimming in a crystal clear pond. Camera slowly pans right. Soft afternoon sunlight, cinematic quality, 4K."],
+            "title": "Positive Prompt"
+        },
+        {
+            "id": 3,
+            "type": "CLIPTextEncode",
+            "pos": [50, 510],
+            "size": [420, 100],
+            "inputs": [
+                {"name": "clip", "type": "CLIP", "link": null}
+            ],
+            "outputs": [
+                {"name": "CONDITIONING", "type": "CONDITIONING", "links": [3]}
+            ],
+            "widgets_values": ["low quality, blurry, distorted, watermark"],
+            "title": "Negative Prompt"
+        },
+        {
+            "id": 4,
+            "type": "LTXVSampler",
+            "pos": [550, 100],
+            "size": [380, 350],
+            "inputs": [
+                {"name": "model", "type": "MODEL", "link": 1},
+                {"name": "positive", "type": "CONDITIONING", "link": 2},
+                {"name": "negative", "type": "CONDITIONING", "link": 3}
+            ],
+            "outputs": [
+                {"name": "LATENT", "type": "LATENT", "links": [4]}
+            ],
+            "widgets_values": [768, 512, 65, 30, 3.0, 42, "fixed"],
+            "title": "LTX Sampler (768×512, 65 frames)"
+        },
+        {
+            "id": 5,
+            "type": "VAEDecode",
+            "pos": [1000, 100],
+            "size": [250, 80],
+            "inputs": [
+                {"name": "samples", "type": "LATENT", "link": 4},
+                {"name": "vae", "type": "VAE", "link": 5}
+            ],
+            "outputs": [
+                {"name": "IMAGE", "type": "IMAGE", "links": [6]}
+            ],
+            "title": "VAE Decode"
+        },
+        {
+            "id": 6,
+            "type": "VHS_VideoCombine",
+            "pos": [1000, 280],
+            "size": [315, 270],
+            "inputs": [
+                {"name": "images", "type": "IMAGE", "link": 6}
+            ],
+            "widgets_values": [24, 0, "nerv_ltx_video", "video/h264-mp4", false, true, "", ""],
+            "title": "Save Video (MP4 @ 24fps)"
+        }
+    ],
+    "links": [
+        [1, 1, 0, 4, 0, "MODEL"],
+        [2, 2, 0, 4, 1, "CONDITIONING"],
+        [3, 3, 0, 4, 2, "CONDITIONING"],
+        [4, 4, 0, 5, 0, "LATENT"],
+        [5, 1, 1, 5, 1, "VAE"],
+        [6, 5, 0, 6, 0, "IMAGE"]
+    ],
+    "config": {},
+    "extra": {
+        "ds": {"scale": 0.7, "offset": [0, 0]},
+        "_notes": "LTX Video is fast and lightweight (~4GB model). 768x512 at 65 frames = ~2.7 seconds at 24fps. Uses only ~5GB VRAM. Great for quick iterations on RTX 3090. Lower CFG (3.0) works best."
+    },
+    "version": 0.4
+}

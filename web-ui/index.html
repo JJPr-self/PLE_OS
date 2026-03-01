@@ -1,0 +1,731 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta
+      name="description"
+      content="NERV Genesis — AI Generation Command Center powered by ComfyUI"
+    />
+    <title>NERV GENESIS | AI Command Center</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="style.css" />
+    <link
+      rel="icon"
+      href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🔮</text></svg>"
+    />
+  </head>
+  <body>
+    <!-- ═══ AUTHENTICATION OVERLAY ═══ -->
+    <div id="auth-overlay" class="auth-overlay">
+      <div class="auth-container">
+        <div class="auth-scanline"></div>
+        <div class="nerv-logo-auth">
+          <div class="nerv-leaf"></div>
+          <div class="nerv-leaf nerv-leaf-2"></div>
+          <div class="nerv-half-leaf"></div>
+        </div>
+        <h1 class="auth-title">NERV</h1>
+        <p class="auth-subtitle">GENESIS AUTHENTICATION REQUIRED</p>
+        <div class="auth-warning">
+          <span class="warning-icon">⚠</span>
+          <span>CLASSIFIED SYSTEM — AUTHORIZED PERSONNEL ONLY</span>
+        </div>
+        <form id="auth-form" class="auth-form">
+          <div class="input-group">
+            <label for="auth-user">OPERATOR ID</label>
+            <input
+              type="text"
+              id="auth-user"
+              placeholder="Enter operator ID..."
+              autocomplete="username"
+              required
+            />
+            <div class="input-line"></div>
+          </div>
+          <div class="input-group">
+            <label for="auth-pass">ACCESS CODE</label>
+            <input
+              type="password"
+              id="auth-pass"
+              placeholder="Enter access code..."
+              autocomplete="current-password"
+              required
+            />
+            <div class="input-line"></div>
+          </div>
+          <button type="submit" id="auth-submit" class="auth-btn">
+            <span class="btn-text">AUTHENTICATE</span>
+            <span class="btn-loading" style="display: none">VERIFYING...</span>
+          </button>
+          <p id="auth-error" class="auth-error" style="display: none"></p>
+        </form>
+        <div class="auth-footer">
+          <span>NERV GENESIS v1.0</span>
+          <span class="separator">|</span>
+          <span>PLEASUREDAI OS</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ MAIN APPLICATION ═══ -->
+    <div id="app" class="app" style="display: none">
+      <!-- ── Scanline Effect ── -->
+      <div class="scanline-overlay"></div>
+
+      <!-- ── Header ── -->
+      <header class="header">
+        <div class="header-left">
+          <div class="nerv-logo-small">
+            <div class="nerv-leaf-sm"></div>
+          </div>
+          <div class="header-title-group">
+            <h1 class="header-title">NERV GENESIS</h1>
+            <p class="header-version">
+              PLEASUREDAI OS v1.0 — AI COMMAND CENTER
+            </p>
+          </div>
+        </div>
+        <div class="header-center">
+          <div class="status-bar">
+            <div class="status-item" id="gpu-status">
+              <span class="status-dot status-dot-loading"></span>
+              <span class="status-label">GPU</span>
+              <span class="status-value" id="gpu-name">SCANNING...</span>
+            </div>
+            <div class="status-item" id="vram-status">
+              <span class="status-dot status-dot-loading"></span>
+              <span class="status-label">VRAM</span>
+              <span class="status-value" id="vram-usage">--/--GB</span>
+            </div>
+            <div class="status-item" id="queue-status">
+              <span class="status-dot"></span>
+              <span class="status-label">QUEUE</span>
+              <span class="status-value" id="queue-count">0</span>
+            </div>
+          </div>
+        </div>
+        <div class="header-right">
+          <div
+            class="sync-indicator"
+            id="sync-indicator"
+            title="ComfyUI Connection"
+          >
+            <span class="sync-pulse"></span>
+            <span class="sync-text">SYNC</span>
+          </div>
+          <button class="btn-icon" id="btn-settings" title="System Settings">
+            ⚙
+          </button>
+          <button class="btn-icon" id="btn-logs" title="System Logs">📋</button>
+          <button class="btn-icon btn-danger" id="btn-logout" title="Logout">
+            ⏻
+          </button>
+        </div>
+      </header>
+
+      <!-- ── Navigation Tabs ── -->
+      <nav class="nav-tabs">
+        <button class="nav-tab active" data-tab="dashboard" id="tab-dashboard">
+          <span class="tab-icon">◈</span>
+          <span class="tab-label">DASHBOARD</span>
+        </button>
+        <button class="nav-tab" data-tab="generate" id="tab-generate">
+          <span class="tab-icon">▶</span>
+          <span class="tab-label">GENERATE</span>
+        </button>
+        <button class="nav-tab" data-tab="gallery" id="tab-gallery">
+          <span class="tab-icon">◫</span>
+          <span class="tab-label">GALLERY</span>
+        </button>
+        <button class="nav-tab" data-tab="models" id="tab-models">
+          <span class="tab-icon">⬡</span>
+          <span class="tab-label">MODELS</span>
+        </button>
+        <button class="nav-tab" data-tab="comfyui" id="tab-comfyui">
+          <span class="tab-icon">⬢</span>
+          <span class="tab-label">COMFYUI</span>
+        </button>
+      </nav>
+
+      <!-- ── Main Content ── -->
+      <main class="main-content">
+        <!-- ═══ DASHBOARD TAB ═══ -->
+        <section id="panel-dashboard" class="panel active">
+          <div class="dashboard-grid">
+            <!-- System Status Card -->
+            <div class="card card-status">
+              <div class="card-header">
+                <h2 class="card-title">SYSTEM STATUS</h2>
+                <span class="card-badge" id="sys-status-badge"
+                  >INITIALIZING</span
+                >
+              </div>
+              <div class="card-body">
+                <div class="metric-grid">
+                  <div class="metric">
+                    <div class="metric-label">GPU TEMPERATURE</div>
+                    <div class="metric-value" id="gpu-temp">--°C</div>
+                    <div class="metric-bar">
+                      <div
+                        class="metric-fill"
+                        id="gpu-temp-bar"
+                        style="width: 0%"
+                      ></div>
+                    </div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric-label">VRAM USAGE</div>
+                    <div class="metric-value" id="vram-detail">--/-- GB</div>
+                    <div class="metric-bar">
+                      <div
+                        class="metric-fill"
+                        id="vram-bar"
+                        style="width: 0%"
+                      ></div>
+                    </div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric-label">GPU UTILIZATION</div>
+                    <div class="metric-value" id="gpu-util">--%</div>
+                    <div class="metric-bar">
+                      <div
+                        class="metric-fill"
+                        id="gpu-util-bar"
+                        style="width: 0%"
+                      ></div>
+                    </div>
+                  </div>
+                  <div class="metric">
+                    <div class="metric-label">QUEUE DEPTH</div>
+                    <div class="metric-value" id="queue-depth">0</div>
+                    <div class="metric-bar">
+                      <div
+                        class="metric-fill"
+                        id="queue-bar"
+                        style="width: 0%"
+                      ></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Quick Actions Card -->
+            <div class="card card-actions">
+              <div class="card-header">
+                <h2 class="card-title">QUICK OPERATIONS</h2>
+              </div>
+              <div class="card-body">
+                <div class="action-grid">
+                  <button
+                    class="action-btn"
+                    id="btn-txt2img"
+                    onclick="openWorkflow('txt2img')"
+                  >
+                    <span class="action-icon">🖼️</span>
+                    <span class="action-label">TEXT→IMAGE</span>
+                    <span class="action-desc">SDXL Generation</span>
+                  </button>
+                  <button
+                    class="action-btn"
+                    id="btn-txt2vid"
+                    onclick="openWorkflow('txt2vid')"
+                  >
+                    <span class="action-icon">🎬</span>
+                    <span class="action-label">TEXT→VIDEO</span>
+                    <span class="action-desc">WAN 2.2 / LTX</span>
+                  </button>
+                  <button
+                    class="action-btn"
+                    id="btn-img2vid"
+                    onclick="openWorkflow('img2vid')"
+                  >
+                    <span class="action-icon">📸</span>
+                    <span class="action-label">IMAGE→VIDEO</span>
+                    <span class="action-desc">Animate Image</span>
+                  </button>
+                  <button
+                    class="action-btn"
+                    id="btn-vid2vid"
+                    onclick="openWorkflow('vid2vid')"
+                  >
+                    <span class="action-icon">🔄</span>
+                    <span class="action-label">VIDEO→VIDEO</span>
+                    <span class="action-desc">Style Transfer</span>
+                  </button>
+                  <button
+                    class="action-btn"
+                    id="btn-faceswap"
+                    onclick="openWorkflow('faceswap')"
+                  >
+                    <span class="action-icon">🎭</span>
+                    <span class="action-label">FACE SWAP</span>
+                    <span class="action-desc">ReActor / InstantID</span>
+                  </button>
+                  <button
+                    class="action-btn"
+                    id="btn-tts"
+                    onclick="openWorkflow('tts')"
+                  >
+                    <span class="action-icon">🔊</span>
+                    <span class="action-label">VOICE GEN</span>
+                    <span class="action-desc">TTS Synthesis</span>
+                  </button>
+                  <button
+                    class="action-btn"
+                    id="btn-upscale"
+                    onclick="openWorkflow('upscale')"
+                  >
+                    <span class="action-icon">🔍</span>
+                    <span class="action-label">UPSCALE</span>
+                    <span class="action-desc">4x UltraSharp</span>
+                  </button>
+                  <button
+                    class="action-btn"
+                    id="btn-comfyui-open"
+                    onclick="openComfyUI()"
+                  >
+                    <span class="action-icon">⚡</span>
+                    <span class="action-label">COMFYUI</span>
+                    <span class="action-desc">Full Editor</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="card card-log">
+              <div class="card-header">
+                <h2 class="card-title">ACTIVITY LOG</h2>
+                <button class="btn-sm" onclick="clearLog()">CLEAR</button>
+              </div>
+              <div class="card-body">
+                <div class="log-container" id="activity-log">
+                  <div class="log-entry log-info">
+                    <span class="log-time">--:--:--</span>
+                    <span class="log-msg">NERV Genesis initializing...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Recent Outputs -->
+            <div class="card card-recent">
+              <div class="card-header">
+                <h2 class="card-title">RECENT OUTPUT</h2>
+                <button class="btn-sm" onclick="refreshGallery()">
+                  REFRESH
+                </button>
+              </div>
+              <div class="card-body">
+                <div class="recent-grid" id="recent-outputs">
+                  <div class="recent-placeholder">
+                    <span>No outputs yet</span>
+                    <span class="sub">Generate your first creation above</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══ GENERATE TAB ═══ -->
+        <section id="panel-generate" class="panel">
+          <div class="generate-layout">
+            <div class="generate-sidebar">
+              <div class="card">
+                <div class="card-header">
+                  <h2 class="card-title">GENERATION MODE</h2>
+                </div>
+                <div class="card-body">
+                  <div class="mode-select">
+                    <label class="mode-option active" data-mode="txt2img">
+                      <input
+                        type="radio"
+                        name="gen-mode"
+                        value="txt2img"
+                        checked
+                      />
+                      <span class="mode-icon">🖼️</span>
+                      <span>Text → Image</span>
+                    </label>
+                    <label class="mode-option" data-mode="txt2vid">
+                      <input type="radio" name="gen-mode" value="txt2vid" />
+                      <span class="mode-icon">🎬</span>
+                      <span>Text → Video</span>
+                    </label>
+                    <label class="mode-option" data-mode="img2vid">
+                      <input type="radio" name="gen-mode" value="img2vid" />
+                      <span class="mode-icon">📸</span>
+                      <span>Image → Video</span>
+                    </label>
+                    <label class="mode-option" data-mode="faceswap">
+                      <input type="radio" name="gen-mode" value="faceswap" />
+                      <span class="mode-icon">🎭</span>
+                      <span>Face Swap</span>
+                    </label>
+                  </div>
+                </div>
+              </div>
+              <div class="card">
+                <div class="card-header">
+                  <h2 class="card-title">PARAMETERS</h2>
+                </div>
+                <div class="card-body">
+                  <div class="param-group">
+                    <label>MODEL</label>
+                    <select id="param-model" class="nerv-select">
+                      <option value="sdxl">SDXL Base 1.0</option>
+                      <option value="wan22">WAN 2.2 (14B)</option>
+                      <option value="ltx">LTX Video</option>
+                      <option value="cogvideo">CogVideoX-5B</option>
+                    </select>
+                  </div>
+                  <div class="param-group">
+                    <label>PROMPT</label>
+                    <textarea
+                      id="param-prompt"
+                      class="nerv-textarea"
+                      rows="4"
+                      placeholder="Enter your prompt..."
+                    ></textarea>
+                  </div>
+                  <div class="param-group">
+                    <label>NEGATIVE PROMPT</label>
+                    <textarea
+                      id="param-negative"
+                      class="nerv-textarea"
+                      rows="2"
+                      placeholder="What to avoid..."
+                    >
+low quality, blurry, distorted, watermark, text</textarea
+                    >
+                  </div>
+                  <div class="param-row">
+                    <div class="param-group">
+                      <label>WIDTH</label>
+                      <input
+                        type="number"
+                        id="param-width"
+                        class="nerv-input"
+                        value="1024"
+                        step="64"
+                        min="256"
+                        max="2048"
+                      />
+                    </div>
+                    <div class="param-group">
+                      <label>HEIGHT</label>
+                      <input
+                        type="number"
+                        id="param-height"
+                        class="nerv-input"
+                        value="1024"
+                        step="64"
+                        min="256"
+                        max="2048"
+                      />
+                    </div>
+                  </div>
+                  <div class="param-group">
+                    <label>STEPS: <span id="steps-val">25</span></label>
+                    <input
+                      type="range"
+                      id="param-steps"
+                      class="nerv-range"
+                      min="1"
+                      max="100"
+                      value="25"
+                    />
+                  </div>
+                  <div class="param-group">
+                    <label>CFG: <span id="cfg-val">7.0</span></label>
+                    <input
+                      type="range"
+                      id="param-cfg"
+                      class="nerv-range"
+                      min="1"
+                      max="20"
+                      value="7"
+                      step="0.5"
+                    />
+                  </div>
+                  <div class="param-group">
+                    <label>SEED</label>
+                    <div class="seed-group">
+                      <input
+                        type="number"
+                        id="param-seed"
+                        class="nerv-input"
+                        value="-1"
+                        min="-1"
+                      />
+                      <button
+                        class="btn-sm"
+                        onclick="
+                          document.getElementById('param-seed').value =
+                            Math.floor(Math.random() * 999999999)
+                        "
+                      >
+                        🎲
+                      </button>
+                    </div>
+                  </div>
+                  <button
+                    class="generate-btn"
+                    id="btn-generate"
+                    onclick="submitGeneration()"
+                  >
+                    <span class="gen-icon">▶</span>
+                    <span>EXECUTE GENERATION</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="generate-preview">
+              <div class="card" style="height: 100%">
+                <div class="card-header">
+                  <h2 class="card-title">OUTPUT PREVIEW</h2>
+                  <div class="preview-controls">
+                    <button
+                      class="btn-sm"
+                      id="btn-download"
+                      onclick="downloadOutput()"
+                      style="display: none"
+                    >
+                      DOWNLOAD
+                    </button>
+                  </div>
+                </div>
+                <div class="card-body preview-area" id="preview-area">
+                  <div class="preview-placeholder" id="preview-placeholder">
+                    <div class="hex-grid">
+                      <div class="hex"></div>
+                      <div class="hex"></div>
+                      <div class="hex"></div>
+                      <div class="hex"></div>
+                      <div class="hex"></div>
+                      <div class="hex"></div>
+                    </div>
+                    <p>AWAITING GENERATION COMMAND</p>
+                    <p class="sub">
+                      Select mode and configure parameters to begin
+                    </p>
+                  </div>
+                  <div
+                    class="progress-overlay"
+                    id="progress-overlay"
+                    style="display: none"
+                  >
+                    <div class="progress-ring">
+                      <svg viewBox="0 0 120 120">
+                        <circle cx="60" cy="60" r="54" class="progress-bg" />
+                        <circle
+                          cx="60"
+                          cy="60"
+                          r="54"
+                          class="progress-fill"
+                          id="progress-circle"
+                        />
+                      </svg>
+                      <span class="progress-text" id="progress-text">0%</span>
+                    </div>
+                    <p class="progress-label" id="progress-label">
+                      Initializing...
+                    </p>
+                  </div>
+                  <img
+                    id="preview-image"
+                    class="preview-output"
+                    style="display: none"
+                    alt="Generated output"
+                  />
+                  <video
+                    id="preview-video"
+                    class="preview-output"
+                    style="display: none"
+                    controls
+                    loop
+                  ></video>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══ GALLERY TAB ═══ -->
+        <section id="panel-gallery" class="panel">
+          <div class="card" style="height: 100%">
+            <div class="card-header">
+              <h2 class="card-title">OUTPUT GALLERY</h2>
+              <div class="gallery-controls">
+                <select class="nerv-select" id="gallery-filter">
+                  <option value="all">ALL</option>
+                  <option value="images">IMAGES</option>
+                  <option value="videos">VIDEOS</option>
+                </select>
+                <button class="btn-sm" onclick="refreshGallery()">
+                  REFRESH
+                </button>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="gallery-grid" id="gallery-grid">
+                <div class="gallery-placeholder">
+                  <p>Gallery will populate with generated outputs</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══ MODELS TAB ═══ -->
+        <section id="panel-models" class="panel">
+          <div class="card">
+            <div class="card-header">
+              <h2 class="card-title">INSTALLED MODELS</h2>
+              <button class="btn-sm" onclick="scanModels()">SCAN</button>
+            </div>
+            <div class="card-body">
+              <div class="model-categories" id="model-list">
+                <div class="model-category">
+                  <h3 class="category-title">CHECKPOINTS</h3>
+                  <div class="model-list" id="models-checkpoints">
+                    <p class="model-placeholder">Scanning...</p>
+                  </div>
+                </div>
+                <div class="model-category">
+                  <h3 class="category-title">VIDEO MODELS</h3>
+                  <div class="model-list" id="models-video">
+                    <p class="model-placeholder">Scanning...</p>
+                  </div>
+                </div>
+                <div class="model-category">
+                  <h3 class="category-title">LoRAs</h3>
+                  <div class="model-list" id="models-loras">
+                    <p class="model-placeholder">Scanning...</p>
+                  </div>
+                </div>
+                <div class="model-category">
+                  <h3 class="category-title">VAEs</h3>
+                  <div class="model-list" id="models-vaes">
+                    <p class="model-placeholder">Scanning...</p>
+                  </div>
+                </div>
+                <div class="model-category">
+                  <h3 class="category-title">FACE SWAP</h3>
+                  <div class="model-list" id="models-face">
+                    <p class="model-placeholder">Scanning...</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ═══ COMFYUI TAB (iframe) ═══ -->
+        <section id="panel-comfyui" class="panel">
+          <div class="comfyui-frame-container">
+            <iframe
+              id="comfyui-iframe"
+              class="comfyui-iframe"
+              title="ComfyUI Editor"
+            ></iframe>
+          </div>
+        </section>
+      </main>
+
+      <!-- ── Footer ── -->
+      <footer class="footer">
+        <span class="footer-nerv">NERV GENESIS</span>
+        <span class="footer-sep">|</span>
+        <span>PLEASUREDAI OS</span>
+        <span class="footer-sep">|</span>
+        <span id="footer-time">--:--:--</span>
+        <span class="footer-sep">|</span>
+        <span id="footer-uptime">UPTIME: --</span>
+      </footer>
+    </div>
+
+    <!-- ── Settings Modal ── -->
+    <div id="settings-modal" class="modal" style="display: none">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h2>SYSTEM SETTINGS</h2>
+          <button class="btn-icon" onclick="closeModal('settings-modal')">
+            ✕
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="setting-group">
+            <h3>ComfyUI Configuration</h3>
+            <div class="param-group">
+              <label>COMFYUI URL</label>
+              <input
+                type="text"
+                id="setting-comfyui-url"
+                class="nerv-input"
+                value="http://localhost:8188"
+              />
+            </div>
+            <div class="param-group">
+              <label>DEFAULT SAMPLER</label>
+              <select id="setting-sampler" class="nerv-select">
+                <option value="euler">Euler</option>
+                <option value="euler_ancestral">Euler Ancestral</option>
+                <option value="dpmpp_2m" selected>DPM++ 2M</option>
+                <option value="dpmpp_2m_sde">DPM++ 2M SDE</option>
+                <option value="dpmpp_3m_sde">DPM++ 3M SDE</option>
+              </select>
+            </div>
+            <div class="param-group">
+              <label>DEFAULT SCHEDULER</label>
+              <select id="setting-scheduler" class="nerv-select">
+                <option value="normal">Normal</option>
+                <option value="karras" selected>Karras</option>
+                <option value="exponential">Exponential</option>
+                <option value="sgm_uniform">SGM Uniform</option>
+              </select>
+            </div>
+          </div>
+          <div class="setting-group">
+            <h3>GPU Optimization</h3>
+            <label class="toggle-option">
+              <input type="checkbox" id="setting-fp16" checked />
+              <span>FP16 VAE (saves VRAM)</span>
+            </label>
+            <label class="toggle-option">
+              <input type="checkbox" id="setting-tiled-vae" />
+              <span>Tiled VAE (large images)</span>
+            </label>
+            <label class="toggle-option">
+              <input type="checkbox" id="setting-xformers" checked />
+              <span>xFormers Attention</span>
+            </label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Log Modal ── -->
+    <div id="log-modal" class="modal" style="display: none">
+      <div class="modal-content modal-wide">
+        <div class="modal-header">
+          <h2>SYSTEM LOG</h2>
+          <button class="btn-icon" onclick="closeModal('log-modal')">✕</button>
+        </div>
+        <div class="modal-body">
+          <pre class="system-log" id="system-log-content">Loading...</pre>
+        </div>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
