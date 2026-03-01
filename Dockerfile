@@ -41,45 +41,37 @@ ENV DEBIAN_FRONTEND=noninteractive \
     COMFYUI_MANAGER_ALLOW_INSTALL=true
 
 # ── System Dependencies ─────────────────────────────────────────────────────
-# Single RUN layer for Docker cache efficiency.
-# Includes everything needed for ComfyUI + video + audio + 3D + face swap.
+# Split into two stages: essential (must succeed) and optional (can fail).
+# The vast.ai base image already has Python, CUDA, and some tools installed.
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    # Python
-    python3.10 python3.10-venv python3.10-dev python3-pip \
-    # Git (model downloads, node cloning)
     git git-lfs \
-    # Download tools (aria2c = multi-connection, much faster)
     wget curl aria2 \
-    # Video/Audio processing
-    ffmpeg libavcodec-extra \
-    # OpenCV + GL dependencies
-    libgl1-mesa-glx libglib2.0-0 libsm6 libxext6 libxrender1 \
+    ffmpeg \
+    libgl1 libglib2.0-0 libsm6 libxext6 libxrender1 \
     libgoogle-perftools-dev \
-    # Web server
     nginx \
-    # System monitoring
-    htop nvtop iotop \
-    # Build tools (needed by some custom nodes with C extensions)
     build-essential cmake ninja-build pkg-config \
-    # OpenCV native
-    libopencv-dev \
-    # Archive tools
     unzip p7zip-full \
-    # Audio/TTS dependencies
     espeak-ng libsndfile1 libportaudio2 \
-    # Logging infrastructure
     logrotate \
-    # Process management
     supervisor \
-    # Networking tools (debugging)
     net-tools iproute2 dnsutils \
+    htop iotop \
     && git lfs install \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
+# Install optional packages that may not exist in all base images (non-fatal)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3-dev python3-venv \
+    libopencv-dev \
+    2>/dev/null; \
+    apt-get clean && rm -rf /var/lib/apt/lists/* || true
+
 # ── Python Symlinks ─────────────────────────────────────────────────────────
-RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 \
-    && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.10 1
+# vast.ai base image may already have python3 — only create if missing
+RUN which python3 || update-alternatives --install /usr/bin/python3 python3 $(which python3.10 || which python3.11 || which python3) 1; \
+    which python || ln -sf $(which python3) /usr/bin/python || true
 
 # ── Pip Upgrade ──────────────────────────────────────────────────────────────
 RUN pip install --upgrade pip setuptools wheel
@@ -145,10 +137,8 @@ RUN pip install \
     mediapipe 2>/dev/null || true
 
 # 3D / depth estimation
-RUN pip install \
-    trimesh \
-    open3d 2>/dev/null || true \
-    pygltflib
+RUN pip install trimesh pygltflib && \
+    pip install open3d 2>/dev/null || true
 
 # Web API / networking
 RUN pip install \
