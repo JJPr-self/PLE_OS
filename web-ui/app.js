@@ -7,10 +7,14 @@
  */
 
 // ── Configuration ───────────────────────────────────────────────────────────
+// Uses Nginx proxy so all traffic goes through the SAME port the user accessed.
+// This works on vast.ai where external ports are dynamically mapped.
+const _wsProto = window.location.protocol === "https:" ? "wss:" : "ws:";
+const _origin = window.location.origin; // e.g. http://136.59.129.136:33432
+
 const CONFIG = {
-  comfyuiUrl:
-    window.location.protocol + "//" + window.location.hostname + ":8188",
-  comfyuiWs: "ws://" + window.location.hostname + ":8188/ws",
+  comfyuiUrl: _origin + "/api",      // Nginx proxies /api/ → localhost:8188
+  comfyuiWs: _wsProto + "//" + window.location.host + "/ws",  // Nginx proxies /ws → ComfyUI WS
   apiBase: "/api",
   pollInterval: 2000,
   logMaxEntries: 100,
@@ -126,7 +130,7 @@ function initializeApp() {
   startSystemMonitor();
 
   // Load ComfyUI iframe
-  document.getElementById("comfyui-iframe").src = CONFIG.comfyuiUrl;
+  document.getElementById("comfyui-iframe").src = _origin + "/comfyui/";
 
   // Start clock
   updateClock();
@@ -792,7 +796,7 @@ function switchTab(tabName) {
   if (tabName === "comfyui") {
     const iframe = document.getElementById("comfyui-iframe");
     if (!iframe.src || iframe.src === "about:blank") {
-      iframe.src = CONFIG.comfyuiUrl;
+      iframe.src = _origin + "/comfyui/";
     }
   }
 

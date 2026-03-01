@@ -34,7 +34,7 @@ ENV DEBIAN_FRONTEND=noninteractive \
     TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9+PTX" \
     CUDA_HOME=/usr/local/cuda \
     PATH="/usr/local/cuda/bin:${PATH}" \
-    LD_LIBRARY_PATH="/usr/local/cuda/lib64:${LD_LIBRARY_PATH}" \
+    LD_LIBRARY_PATH="/usr/local/lib/python3.10/dist-packages/nvidia/nvjitlink/lib:/usr/local/cuda/lib64:${LD_LIBRARY_PATH}" \
     NERV_LOG_DIR=/var/log/nerv \
     NERV_LOG_LEVEL=INFO \
     COMFYUI_MANAGER_ALLOW_INSTALL=true
@@ -66,6 +66,10 @@ RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.10 1 &
 
 # ── PyTorch (CUDA 12.1 — pinned, verified) ──────────────────────────────────
 RUN pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# ── Fix CUDA library compatibility ──────────────────────────────────────────
+# PyTorch cu121 bundles cusparse from CUDA 12.4 which needs nvjitlink 12.4
+RUN pip install nvidia-nvjitlink-cu12
 
 # ── xFormers ─────────────────────────────────────────────────────────────────
 RUN pip install xformers

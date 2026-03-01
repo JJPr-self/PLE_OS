@@ -323,9 +323,9 @@ def cmd_logs(args):
 def collect_errors(max_lines=20):
     """Scan all log files for error patterns and return sorted list."""
     error_patterns = [
-        r'(?i)\b(error|exception|traceback|failed|fatal|critical|panic)\b',
-        r'(?i)(oom|out of memory|cuda error|segfault)',
-        r'(?i)(errno|permission denied|connection refused)',
+        r'\b(error|exception|traceback|failed|fatal|critical|panic)\b',
+        r'(oom|out of memory|cuda error|segfault)',
+        r'(errno|permission denied|connection refused)',
     ]
     combined_pattern = '|'.join(error_patterns)
 
