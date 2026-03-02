@@ -14,6 +14,10 @@ NODES_DIR="${CUSTOM_NODES_DIR:-/opt/comfyui/custom_nodes}"
 LOG_FILE="/var/log/nerv/node_install.log"
 TIMESTAMP=$(date "+%Y-%m-%d %H:%M:%S")
 
+# Prevent git from ever asking for a password, which hangs background scripts
+export GIT_TERMINAL_PROMPT=0
+export GIT_ASKPASS=/bin/echo
+
 # Ensure directories exist
 mkdir -p "$NODES_DIR" "$(dirname "$LOG_FILE")"
 cd "$NODES_DIR" || exit 1

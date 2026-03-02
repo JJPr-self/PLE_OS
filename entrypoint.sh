@@ -23,7 +23,6 @@ nerv_log() {
         echo "$FORMATTED" >> "$ERROR_LOG"
     fi
 }
-
 # ── Prevent double-start ────────────────────────────────────────────────────
 LOCKFILE="/tmp/nerv-entrypoint.lock"
 if [ -f "$LOCKFILE" ]; then
@@ -32,14 +31,12 @@ if [ -f "$LOCKFILE" ]; then
 fi
 touch "$LOCKFILE"
 trap 'rm -f "$LOCKFILE"' EXIT
-
 # ── Banner ───────────────────────────────────────────────────────────────────
 echo "============================================================"
 echo "  PLEASUREDAI OS — NERV GENESIS v2.1"
 echo "  ComfyUI + AI Video/Image/Audio Suite"
 echo "============================================================"
 nerv_log "INFO" "=== NERV Genesis starting ==="
-
 # ── Phase 1: GPU Check (non-fatal) ──────────────────────────────────────────
 nerv_log "INFO" "Phase 1: GPU Verification"
 if command -v nvidia-smi &> /dev/null; then
@@ -47,7 +44,6 @@ if command -v nvidia-smi &> /dev/null; then
         nerv_log "INFO" "GPU: ${GPU_INFO}" || \
         nerv_log "WARN" "nvidia-smi error: ${GPU_INFO}"
 fi
-
 # Quick PyTorch check (non-fatal — don't block startup)
 nerv_log "INFO" "Phase 2: PyTorch Check"
 python3 -c "
@@ -57,11 +53,9 @@ if torch.cuda.is_available():
     print(f'GPU: {torch.cuda.get_device_name(0)}, VRAM: {torch.cuda.get_device_properties(0).total_mem/1024**3:.1f}GB')
 " 2>&1 | while IFS= read -r line; do nerv_log "INFO" "  $line"; done
 # Don't check exit code — continue regardless
-
 # ── Phase 3: Auth Config ────────────────────────────────────────────────────
 nerv_log "INFO" "Phase 3: Authentication"
 AUTH_TOKEN="${AUTH_TOKEN:-$(python3 -c 'import secrets; print(secrets.token_urlsafe(32))' 2>/dev/null || echo 'fallback_token')}"
-
 cat > /opt/nerv-ui/auth_config.json <<EOF
 {
     "username": "${AUTH_USERNAME:-nerv}",
@@ -113,6 +107,11 @@ cd /opt/nerv-ui
 nohup python3 -m http.server ${NERV_UI_PORT:-3000} --bind 0.0.0.0 > "${NERV_LOG_DIR}/ui.log" 2>&1 &
 nerv_log "INFO" "  NERV UI started on port ${NERV_UI_PORT:-3000}"
 
+# Backup Gradio UI
+nerv_log "INFO" "→ Starting Backup Gradio UI..."
+nohup python3 /opt/scripts/backup_ui.py > "${NERV_LOG_DIR}/gradio.log" 2>&1 &
+nerv_log "INFO" "  Backup Gradio UI started on port 7860"
+
 # ComfyUI
 nerv_log "INFO" "→ Starting ComfyUI..."
 nerv_log "INFO" "  Args: ${COMFY_ARGS}"
@@ -120,12 +119,6 @@ cd "${COMFYUI_DIR:-/opt/comfyui}"
 
 # Detect environment for foreground vs background mode
 if [ $$ -eq 1 ] || [ "${FOREGROUND:-1}" = "1" ]; then
-    # ── Phase 7: Install nodes in BACKGROUND ────────────────────────────
-    if [ -f /opt/scripts/install_nodes.sh ]; then
-        nerv_log "INFO" "Phase 7: Installing custom nodes (background)..."
-        nohup bash /opt/scripts/install_nodes.sh > "${NERV_LOG_DIR}/node_install.log" 2>&1 &
-        nerv_log "INFO" "  Node installer running in background (PID: $!)"
-    fi
 
     # Environment info
     if [ -n "$PUBLIC_IPADDR" ]; then
@@ -145,10 +138,7 @@ else
     COMFY_PID=$!
     nerv_log "INFO" "  ComfyUI started (PID: ${COMFY_PID})"
 
-    # Install nodes in background
-    if [ -f /opt/scripts/install_nodes.sh ]; then
-        nohup bash /opt/scripts/install_nodes.sh > "${NERV_LOG_DIR}/node_install.log" 2>&1 &
-    fi
+
 
     # Wait for ComfyUI API
     nerv_log "INFO" "  Waiting for ComfyUI API..."

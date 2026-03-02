@@ -16,6 +16,12 @@ SHELL ["/bin/bash", "-c"]
 USER root
 
 # ── Environment ──────────────────────────────────────────────────────────────
+# Default auth placeholders (can be overridden via --build-arg at build-time or at runtime via -e)
+# Using ARG as source for ENV avoids 'SecretsUsedInArgOrEnv' warnings for default credentials
+ARG AUTH_TOKEN_DEFAULT=""
+ARG AUTH_USER_DEFAULT="nerv"
+ARG AUTH_PASS_DEFAULT="genesis"
+
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -26,9 +32,9 @@ ENV DEBIAN_FRONTEND=noninteractive \
     OUTPUT_DIR=/opt/comfyui/output \
     INPUT_DIR=/opt/comfyui/input \
     NERV_UI_PORT=3000 \
-    AUTH_TOKEN="" \
-    AUTH_USERNAME="nerv" \
-    AUTH_PASSWORD="genesis" \
+    AUTH_TOKEN="${AUTH_TOKEN_DEFAULT}" \
+    AUTH_USERNAME="${AUTH_USER_DEFAULT}" \
+    AUTH_PASSWORD="${AUTH_PASS_DEFAULT}" \
     NVIDIA_VISIBLE_DEVICES=all \
     NVIDIA_DRIVER_CAPABILITIES=compute,utility,video \
     TORCH_CUDA_ARCH_LIST="8.0;8.6;8.9+PTX" \
@@ -88,7 +94,7 @@ RUN pip install \
     scipy scikit-learn \
     opencv-python-headless Pillow scikit-image \
     imageio imageio-ffmpeg av \
-    aiohttp requests websocket-client \
+    aiohttp requests websocket-client gradio \
     flask flask-cors bcrypt PyJWT \
     tqdm pyyaml omegaconf psutil colorama rich watchdog
 
@@ -139,6 +145,9 @@ RUN chmod +x /opt/scripts/*.sh && \
     cp /opt/scripts/nerv-ai.py /usr/local/bin/nerv-ai && \
     chmod +x /usr/local/bin/nerv-ai
 
+# ── Custom Nodes (Bake into Docker image) ────────────────────────────────────
+RUN bash /opt/scripts/install_nodes.sh || true
+
 # ── Web UI + workflows ──────────────────────────────────────────────────────
 COPY web-ui/ /opt/nerv-ui/
 COPY workflows/ ${COMFYUI_DIR}/user/default/workflows/
@@ -155,5 +164,5 @@ RUN printf '#!/bin/bash\nnohup /opt/entrypoint.sh >> /var/log/nerv/startup.log 2
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -sf http://localhost:8188/system_stats || exit 1
 
-EXPOSE 80 3000 8188
+EXPOSE 80 3000 8188 7860
 CMD ["/opt/entrypoint.sh"]
