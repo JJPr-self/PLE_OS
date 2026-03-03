@@ -145,17 +145,33 @@ dl_hf "Kijai/WanVideo-fp8" \
       "wan2.1_t2v_14B_fp8_e4m3fn.safetensors" \
       "models/diffusion_models"
 
+# T2V 1.3B fp8 Kijai format
+dl_hf "Kijai/WanVideo-fp8" \
+      "wan2.1_t2v_1.3B_fp8_e4m3fn.safetensors" \
+      "models/diffusion_models"
+
 # I2V 480P 14B fp8 (~14GB) Kijai format
 dl_hf "Kijai/WanVideo-fp8" \
       "wan2.1_i2v_480p_14B_fp8_e4m3fn.safetensors" \
+      "models/diffusion_models"
+
+# I2V 720P 14B fp8 (~14GB) Kijai format
+dl_hf "Kijai/WanVideo-fp8" \
+      "wan2.1_i2v_720p_14B_fp8_e4m3fn.safetensors" \
       "models/diffusion_models"
       
 # Native ComfyUI Wan2.1 fp8 Models (direct download to prevent namespace collision)
 dl_direct "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_t2v_14B_fp8_e4m3fn.safetensors" \
           "models/diffusion_models" "wan2.1_t2v_14B_fp8_comfy_native.safetensors" || true
 
+dl_direct "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_t2v_1.3B_fp8_e4m3fn.safetensors" \
+          "models/diffusion_models" "wan2.1_t2v_1.3B_fp8_comfy_native.safetensors" || true
+
 dl_direct "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_i2v_480p_14B_fp8_e4m3fn.safetensors" \
           "models/diffusion_models" "wan2.1_i2v_480p_14B_fp8_comfy_native.safetensors" || true
+
+dl_direct "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_i2v_720p_14B_fp8_e4m3fn.safetensors" \
+          "models/diffusion_models" "wan2.1_i2v_720p_14B_fp8_comfy_native.safetensors" || true
 
 # VAE (~500MB)
 dl_hf "Wan-AI/Wan2.1-T2V-14B" \
