@@ -38,16 +38,27 @@ LORAS=(
 # ▲▲▲ END OF CONFIG ▲▲▲
 
 # ================================================================
-# AUTO-DETECT COMFYUI PATH
+# AUTO-DETECT COMFYUI PATH (Hardcoded to NERV OS standard)
 # ================================================================
-if   [ -d "/workspace/ComfyUI" ];  then COMFY="/workspace/ComfyUI"
-elif [ -d "/ComfyUI" ];            then COMFY="/ComfyUI"
-elif [ -d "/opt/comfyui" ];        then COMFY="/opt/comfyui"
-elif [ -d "$HOME/ComfyUI" ];       then COMFY="$HOME/ComfyUI"
-else err "ComfyUI not found. Check your instance." && exit 1
+COMFY="/opt/comfyui"
+if [ ! -d "$COMFY" ]; then
+  err "ComfyUI not found at $COMFY. Check your instance volume mappings."
+  # Fallback just in case
+  [ -d "/workspace/ComfyUI" ] && COMFY="/workspace/ComfyUI"
 fi
-info "ComfyUI detected at: $COMFY"
+info "ComfyUI targeted at: $COMFY"
 cd "$COMFY"
+
+# ================================================================
+# STEP 0 — OVER-INSTALL MISSING DEPENDENCIES (For WAN / Templates)
+# ================================================================
+info "Installing heavy dependencies required by Wan2.2 & Video nodes..."
+pip install -q decord imageio-ffmpeg opencv-python imageio numpy==1.26.4
+pip install -q diffusers transformers accelerate peft
+pip install -q einops sentencepiece
+pip install -q sageattention==1.0.6 || true
+pip install -q xformers --index-url https://download.pytorch.org/whl/cu121 || true
+log "Dependency over-install complete."
 
 # ================================================================
 # STEP 1 — HF LOGIN + FAST TRANSFER
@@ -84,6 +95,13 @@ install_node "ComfyUI-WanVideoWrapper"  "https://github.com/kijai/ComfyUI-WanVid
 install_node "ComfyUI-VideoHelperSuite" "https://github.com/Kosinkadink/ComfyUI-VideoHelperSuite"
 install_node "ComfyUI-GGUF"             "https://github.com/city96/ComfyUI-GGUF"
 
+info "Installing auxiliary nodes for Mocap / Rigging / Pose / Video enhancements..."
+install_node "ComfyUI_Controlnet_aux"   "https://github.com/Fannovel16/comfyui_controlnet_aux"
+install_node "ComfyUI-AnimateDiff-Evolved" "https://github.com/Kosinkadink/ComfyUI-AnimateDiff-Evolved"
+install_node "ComfyUI-Advanced-ControlNet" "https://github.com/Kosinkadink/ComfyUI-Advanced-ControlNet"
+install_node "ComfyUI_IPAdapter_plus"   "https://github.com/cubiq/ComfyUI_IPAdapter_plus"
+install_node "comfyui-reactor-node"     "https://github.com/Gourieff/comfyui-reactor-node" || true
+
 cd "$COMFY"
 
 # ================================================================
@@ -111,25 +129,47 @@ dl_hf() {
   fi
 }
 
-# T2V 14B fp8 (~14GB)
+dl_direct() {
+  local url="$1" dest="$2" file="$3"
+  if [ ! -f "$dest/$file" ]; then
+    info "Downloading $file directly..."
+    wget -q --show-progress -O "$dest/$file" "$url"
+    log "$file done"
+  else
+    skip "$file"
+  fi
+}
+
+# T2V 14B fp8 (~14GB) Kijai format
 dl_hf "Kijai/WanVideo-fp8" \
-      "wan2.2_t2v_14B_fp8_e4m3fn.safetensors" \
+      "wan2.1_t2v_14B_fp8_e4m3fn.safetensors" \
       "models/diffusion_models"
 
-# I2V 480P 14B fp8 (~14GB)
+# I2V 480P 14B fp8 (~14GB) Kijai format
 dl_hf "Kijai/WanVideo-fp8" \
-      "wan2.2_i2v_480p_14B_fp8_e4m3fn.safetensors" \
+      "wan2.1_i2v_480p_14B_fp8_e4m3fn.safetensors" \
       "models/diffusion_models"
+      
+# Native ComfyUI Wan2.1 fp8 Models (direct download to prevent namespace collision)
+dl_direct "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_t2v_14B_fp8_e4m3fn.safetensors" \
+          "models/diffusion_models" "wan2.1_t2v_14B_fp8_comfy_native.safetensors" || true
+
+dl_direct "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_i2v_480p_14B_fp8_e4m3fn.safetensors" \
+          "models/diffusion_models" "wan2.1_i2v_480p_14B_fp8_comfy_native.safetensors" || true
 
 # VAE (~500MB)
-dl_hf "Wan-AI/Wan2.2-T2V-14B" \
-      "Wan_2.2_VAE.safetensors" \
+dl_hf "Wan-AI/Wan2.1-T2V-14B" \
+      "Wan2.1_VAE.safetensors" \
       "models/vae"
 
-# Text encoder GGUF (~5GB)
+# Text encoder GGUF (Kijai / GGUF node support)
 dl_hf "city96/umt5-xxl-enc-gguf" \
       "umt5-xxl-encoder-Q8_0.gguf" \
       "models/text_encoders"
+      
+# Native ComfyUI UMT5 Text Encoder (FP8)
+dl_direct "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
+          "models/text_encoders" "umt5_xxl_fp8_e4m3fn_scaled.safetensors" || true
 
 # CLIP Vision for I2V (~900MB)
 dl_hf "Comfy-Org/sigclip_vision_384" \
