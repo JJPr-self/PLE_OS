@@ -63,8 +63,6 @@ RUN mkdir -p /opt/nerv-ui /opt/scripts /var/log/nerv \
     ${COMFYUI_DIR}/models ${COMFYUI_DIR}/custom_nodes ${COMFYUI_DIR}/user/default/workflows
 
 # ── 7. Configs ──────────────────────────────────────────────────────────────
-COPY config/sub_config/* /tmp/ 
-# (Helper: copy only if exists, or copy directory)
 COPY config/extra_model_paths.yaml ${COMFYUI_DIR}/extra_model_paths.yaml
 COPY nginx/nginx.conf /etc/nginx/nginx.conf
 COPY config/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
