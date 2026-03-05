@@ -1,108 +1,176 @@
 {
-    "last_node_id": 10,
-    "last_link_id": 8,
-    "_comment": "WAN 2.2 Image-to-Video workflow. Takes a source image and animates it. Requires: ComfyUI-WanVideoWrapper, ComfyUI-VideoHelperSuite.",
+    "last_node_id": 12,
+    "last_link_id": 11,
+    "_comment": "Wan 2.1/2.2 I2V workflow using Kijai WanVideoWrapper nodes. Pre-downloaded models from models/diffusion_models/. Upload source image in LoadImage node.",
     "nodes": [
         {
             "id": 1,
-            "type": "DownloadAndLoadWanModel",
+            "type": "WanVideoModelLoader",
             "pos": [50, 100],
-            "size": [350, 150],
+            "size": [350, 120],
             "outputs": [
-                {"name": "wan_model", "type": "WANMODEL", "links": [1]}
+                {"name": "model", "type": "WANMODEL", "links": [1]}
             ],
-            "widgets_values": ["Wan-AI/Wan2.2-I2V-14B-480P-Diffusers", "bf16", "fp16", "disabled"],
-            "title": "Load WAN 2.2 I2V 14B"
+            "widgets_values": ["Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors", "fp8_e4m3fn", "offload_device", true],
+            "title": "Load Wan I2V 14B 480P (fp8)"
         },
         {
             "id": 2,
-            "type": "DownloadAndLoadWanVAE",
-            "pos": [50, 320],
-            "size": [350, 100],
+            "type": "WanVideoVAELoader",
+            "pos": [50, 280],
+            "size": [350, 58],
             "outputs": [
-                {"name": "wan_vae", "type": "WANVAE", "links": [2]}
+                {"name": "vae", "type": "WANVAE", "links": [2, 9]}
             ],
-            "widgets_values": ["Wan-AI/Wan2.2-I2V-14B-480P-Diffusers"],
-            "title": "Load WAN VAE"
+            "widgets_values": ["Wan2_1_VAE_bf16.safetensors"],
+            "title": "Load Wan VAE"
         },
         {
             "id": 3,
+            "type": "WanVideoTextEncoderLoader",
+            "pos": [50, 390],
+            "size": [350, 58],
+            "outputs": [
+                {"name": "clip", "type": "CLIP", "links": [3]}
+            ],
+            "widgets_values": ["umt5-xxl-enc-fp8_e4m3fn.safetensors"],
+            "title": "Load UMT5 Text Encoder"
+        },
+        {
+            "id": 4,
+            "type": "CLIPVisionLoader",
+            "pos": [50, 500],
+            "size": [350, 58],
+            "outputs": [
+                {"name": "clip_vision", "type": "CLIP_VISION", "links": [8]}
+            ],
+            "widgets_values": ["sigclip_vision_patch14_384.safetensors"],
+            "title": "Load CLIP Vision (SigCLIP)"
+        },
+        {
+            "id": 5,
             "type": "LoadImage",
-            "pos": [50, 490],
+            "pos": [50, 620],
             "size": [315, 314],
             "outputs": [
-                {"name": "IMAGE", "type": "IMAGE", "links": [3]}
+                {"name": "IMAGE", "type": "IMAGE", "links": [10]},
+                {"name": "MASK",  "type": "MASK",  "links": []}
             ],
             "widgets_values": ["input_image.png", "image"],
             "title": "Source Image (Upload Here)"
         },
         {
-            "id": 4,
-            "type": "WanI2VCondition",
-            "pos": [450, 100],
-            "size": [400, 200],
+            "id": 6,
+            "type": "WanVideoTextEncode",
+            "pos": [450, 50],
+            "size": [480, 200],
             "inputs": [
-                {"name": "image", "type": "IMAGE", "link": 3}
+                {"name": "clip", "type": "CLIP", "link": 3}
             ],
             "outputs": [
                 {"name": "conditioning", "type": "WANCOND", "links": [4]}
             ],
-            "widgets_values": ["slow camera pan across the scene with gentle wind animation, photorealistic motion, cinematic", "Wan-AI/Wan2.2-I2V-14B-480P-Diffusers", "fp16"],
-            "title": "I2V Prompt + Image Conditioning"
-        },
-        {
-            "id": 5,
-            "type": "WanSampler",
-            "pos": [900, 100],
-            "size": [370, 350],
-            "inputs": [
-                {"name": "wan_model", "type": "WANMODEL", "link": 1},
-                {"name": "conditioning", "type": "WANCOND", "link": 4}
-            ],
-            "outputs": [
-                {"name": "samples", "type": "WANLATENT", "links": [5]}
-            ],
-            "widgets_values": [832, 480, 49, 25, 5.0, 12345, "fixed", "dpmpp_2m", "karras", 16],
-            "title": "WAN Sampler (49 frames)"
-        },
-        {
-            "id": 6,
-            "type": "WanVAEDecode",
-            "pos": [1350, 100],
-            "size": [250, 80],
-            "inputs": [
-                {"name": "wan_vae", "type": "WANVAE", "link": 2},
-                {"name": "samples", "type": "WANLATENT", "link": 5}
-            ],
-            "outputs": [
-                {"name": "images", "type": "IMAGE", "links": [6]}
-            ],
-            "title": "VAE Decode"
+            "widgets_values": ["slow camera pan across the scene with gentle wind animation, photorealistic motion, cinematic, high quality", "blurry, static, watermark, low quality, deformed", 1.0],
+            "title": "Text Prompt"
         },
         {
             "id": 7,
+            "type": "WanVideoLoraSelect",
+            "pos": [50, 990],
+            "size": [350, 82],
+            "inputs":  [{"name": "model", "type": "WANMODEL", "link": null}],
+            "outputs": [{"name": "model", "type": "WANMODEL", "links": []}],
+            "widgets_values": ["None", 0.8],
+            "title": "LoRA (optional)"
+        },
+        {
+            "id": 8,
+            "type": "WanVideoI2VEncode",
+            "pos": [450, 310],
+            "size": [420, 140],
+            "inputs": [
+                {"name": "clip_vision", "type": "CLIP_VISION", "link": 8},
+                {"name": "image",       "type": "IMAGE",       "link": 10},
+                {"name": "vae",         "type": "WANVAE",      "link": 9}
+            ],
+            "outputs": [
+                {"name": "conditioning", "type": "WANCOND", "links": [11]}
+            ],
+            "widgets_values": [1.0],
+            "title": "I2V Image Encode"
+        },
+        {
+            "id": 9,
+            "type": "WanVideoNoise",
+            "pos": [900, 60],
+            "size": [320, 100],
+            "outputs": [
+                {"name": "noise", "type": "NOISE", "links": [5]}
+            ],
+            "widgets_values": [42, 81, 832, 480],
+            "title": "Noise (81 frames, 832x480)"
+        },
+        {
+            "id": 10,
+            "type": "WanVideoSampler",
+            "pos": [900, 220],
+            "size": [380, 320],
+            "inputs": [
+                {"name": "model",              "type": "WANMODEL", "link": 1},
+                {"name": "positive",           "type": "WANCOND",  "link": 4},
+                {"name": "image_conditioning", "type": "WANCOND",  "link": 11},
+                {"name": "noise",              "type": "NOISE",    "link": 5}
+            ],
+            "outputs": [
+                {"name": "samples", "type": "LATENT", "links": [6]}
+            ],
+            "widgets_values": [30, 5.0, "euler", "beta", 81, 832, 480, 1],
+            "title": "WAN Sampler"
+        },
+        {
+            "id": 11,
+            "type": "WanVideoDecodeKeyframes",
+            "pos": [1340, 220],
+            "size": [320, 68],
+            "inputs": [
+                {"name": "samples", "type": "LATENT", "link": 6},
+                {"name": "vae",     "type": "WANVAE", "link": 2}
+            ],
+            "outputs": [
+                {"name": "images", "type": "IMAGE", "links": [7]}
+            ],
+            "widgets_values": [true],
+            "title": "VAE Decode"
+        },
+        {
+            "id": 12,
             "type": "VHS_VideoCombine",
-            "pos": [1350, 280],
+            "pos": [1340, 400],
             "size": [315, 270],
             "inputs": [
-                {"name": "images", "type": "IMAGE", "link": 6}
+                {"name": "images", "type": "IMAGE", "link": 7}
             ],
-            "widgets_values": [16, 0, "nerv_wan22_i2v", "video/h264-mp4", false, true, "", ""],
-            "title": "Save Video (MP4)"
+            "widgets_values": [16, 0, "nerv_wan_i2v", "video/h264-mp4", false, true, "", ""],
+            "title": "Save Video (MP4 @ 16fps)"
         }
     ],
     "links": [
-        [1, 1, 0, 5, 0, "WANMODEL"],
-        [2, 2, 0, 6, 0, "WANVAE"],
-        [3, 3, 0, 4, 0, "IMAGE"],
-        [4, 4, 0, 5, 1, "WANCOND"],
-        [5, 5, 0, 6, 1, "WANLATENT"],
-        [6, 6, 0, 7, 0, "IMAGE"]
+        [1,  1,  0, 10, 0, "WANMODEL"],
+        [2,  2,  0, 11, 1, "WANVAE"],
+        [3,  3,  0, 6,  0, "CLIP"],
+        [4,  6,  0, 10, 1, "WANCOND"],
+        [5,  9,  0, 10, 3, "NOISE"],
+        [6,  10, 0, 11, 0, "LATENT"],
+        [7,  11, 0, 12, 0, "IMAGE"],
+        [8,  4,  0, 8,  0, "CLIP_VISION"],
+        [9,  2,  0, 8,  2, "WANVAE"],
+        [10, 5,  0, 8,  1, "IMAGE"],
+        [11, 8,  0, 10, 2, "WANCOND"]
     ],
     "config": {},
     "extra": {
         "ds": {"scale": 0.7, "offset": [0, 0]},
-        "_notes": "Upload your source image to the LoadImage node. The model will animate it based on the text prompt. 49 frames at 16fps = ~3 second video. Optimized for 24GB VRAM."
+        "_notes": "Upload source image to LoadImage node. Uses Kijai WanVideoWrapper with pre-downloaded models. Model: Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors. 81 frames at 16fps = ~5 sec. 24GB+ VRAM."
     },
     "version": 0.4
 }

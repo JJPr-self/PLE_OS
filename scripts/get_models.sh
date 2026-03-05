@@ -168,42 +168,78 @@ if [ "$MODE" = "--essential" ] || [ "$MODE" = "--all" ]; then
 fi
 
 ###############################################################################
-# VIDEO MODELS (~40GB+) — WAN 2.2, LTX, CogVideoX, Hunyuan
+# VIDEO MODELS (~50GB+) — WAN 2.1/2.2 (Kijai format), LTX, CogVideoX
+# All URLs verified against actual HuggingFace repos. No huggingface-cli.
+# Uses Kijai/WanVideo_comfy single-file format (what ComfyUI nodes expect).
 ###############################################################################
 if [ "$MODE" = "--video" ] || [ "$MODE" = "--all" ]; then
     echo ""
     dl_log "INFO" "═══ VIDEO: Text-to-Video / Image-to-Video ═══"
 
-    # ── WAN 2.2 T2V 14B ─────────────────────────────────────────────────
-    # State-of-the-art open video model (2025). Requires 24GB+ VRAM in fp16.
-    dl_log "INFO" "--- WAN 2.2 (Text-to-Video 14B) ---"
-    hf_download "Wan-AI/Wan2.2-T2V-14B" \
-        "diffusion_pytorch_model.safetensors" \
-        "${MODELS_DIR}/diffusion_models/wan2.2_t2v_14b_fp16.safetensors"
+    # ── Wan T2V 14B fp8 (~14.9GB) — Main text-to-video ──────────────────
+    dl_log "INFO" "--- Wan T2V 14B (fp8, Kijai format) ---"
+    download "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-T2V-14B_fp8_e4m3fn.safetensors" \
+        "${MODELS_DIR}/diffusion_models/Wan2_1-T2V-14B_fp8_e4m3fn.safetensors"
 
-    hf_download "Wan-AI/Wan2.2-T2V-14B" \
-        "models_t5_umt5-xxl-enc-bf16.pth" \
-        "${MODELS_DIR}/text_encoders/wan2.2_t5_umt5xxl.pth"
+    # ── Wan T2V 1.3B fp8 (~1.5GB) — Lightweight ─────────────────────────
+    dl_log "INFO" "--- Wan T2V 1.3B (fp8, Kijai format) ---"
+    download "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-T2V-1_3B_fp8_e4m3fn.safetensors" \
+        "${MODELS_DIR}/diffusion_models/Wan2_1-T2V-1_3B_fp8_e4m3fn.safetensors"
 
-    hf_download "Wan-AI/Wan2.2-T2V-14B" \
-        "models_clip_open-clip-xlm-roberta-large-vit-huge-14.pth" \
-        "${MODELS_DIR}/text_encoders/wan2.2_clip_xlm_roberta.pth"
+    # ── Wan I2V 480P 14B fp8 (~17GB) — Image-to-video ───────────────────
+    dl_log "INFO" "--- Wan I2V 480P 14B (fp8, Kijai format) ---"
+    download "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors" \
+        "${MODELS_DIR}/diffusion_models/Wan2_1-I2V-14B-480P_fp8_e4m3fn.safetensors"
 
-    hf_download "Wan-AI/Wan2.2-T2V-14B" \
-        "Wan2.2_VAE.pth" \
-        "${MODELS_DIR}/vae/wan2.2_vae.pth"
+    # ── Wan I2V 720P 14B fp8 (~17GB) ─────────────────────────────────────
+    dl_log "INFO" "--- Wan I2V 720P 14B (fp8, Kijai format) ---"
+    download "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-I2V-14B-720P_fp8_e4m3fn.safetensors" \
+        "${MODELS_DIR}/diffusion_models/Wan2_1-I2V-14B-720P_fp8_e4m3fn.safetensors"
 
-    # ── WAN 2.2 I2V (Image-to-Video) ────────────────────────────────────
-    dl_log "INFO" "--- WAN 2.2 (Image-to-Video 14B) ---"
-    hf_download "Wan-AI/Wan2.2-I2V-14B-480P" \
-        "diffusion_pytorch_model.safetensors" \
-        "${MODELS_DIR}/diffusion_models/wan2.2_i2v_14b_480p.safetensors"
+    # ── Wan 2.2 I2V A14B HIGH (~28.6GB) — Enhanced Wan 2.2 ──────────────
+    dl_log "INFO" "--- Wan 2.2 I2V A14B HIGH (bf16) ---"
+    download "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_2-I2V-A14B-HIGH_bf16.safetensors" \
+        "${MODELS_DIR}/diffusion_models/Wan2_2-I2V-A14B-HIGH_bf16.safetensors"
 
-    # ── WAN 2.2 1.3B (Lightweight — fits in 8GB VRAM) ───────────────────
-    dl_log "INFO" "--- WAN 2.2 (Lightweight 1.3B) ---"
-    hf_download "Wan-AI/Wan2.2-T2V-1.3B" \
-        "diffusion_pytorch_model.safetensors" \
-        "${MODELS_DIR}/diffusion_models/wan2.2_t2v_1.3b.safetensors"
+    # ── VAE (Wan 2.1 ~254MB + Wan 2.2 ~1.4GB) ───────────────────────────
+    dl_log "INFO" "--- Wan VAE ---"
+    download "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1_VAE_bf16.safetensors" \
+        "${MODELS_DIR}/vae/Wan2_1_VAE_bf16.safetensors"
+
+    download "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_2_VAE_bf16.safetensors" \
+        "${MODELS_DIR}/vae/Wan2_2_VAE_bf16.safetensors"
+
+    # ── UMT5-XXL Text Encoder fp8 (~6.7GB, Kijai format) ────────────────
+    dl_log "INFO" "--- UMT5-XXL Text Encoder ---"
+    download "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/umt5-xxl-enc-fp8_e4m3fn.safetensors" \
+        "${MODELS_DIR}/text_encoders/umt5-xxl-enc-fp8_e4m3fn.safetensors"
+
+    # ── CLIP Vision for I2V (~856MB) ─────────────────────────────────────
+    dl_log "INFO" "--- SigCLIP Vision 384 ---"
+    download "https://huggingface.co/Comfy-Org/sigclip_vision_384/resolve/main/sigclip_vision_patch14_384.safetensors" \
+        "${MODELS_DIR}/clip_vision/sigclip_vision_patch14_384.safetensors"
+
+    # ── Open-CLIP Visual (~1.3GB) — For Wan I2V visual conditioning ──────
+    download "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors" \
+        "${MODELS_DIR}/clip_vision/open-clip-xlm-roberta-large-vit-huge-14_visual_fp16.safetensors"
+
+    # ── VACE module 14B fp8 (~3.1GB) — Motion control ────────────────────
+    dl_log "INFO" "--- VACE Motion Control ---"
+    download "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan2_1-VACE_module_14B_fp8_e4m3fn.safetensors" \
+        "${MODELS_DIR}/diffusion_models/Wan2_1-VACE_module_14B_fp8_e4m3fn.safetensors"
+
+    # ── Comfy-Org Native T2V 14B fp8 (~14.3GB) — Alternative format ─────
+    dl_log "INFO" "--- Comfy-Org Native Models (alternative) ---"
+    download "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_t2v_14B_fp8_e4m3fn.safetensors" \
+        "${MODELS_DIR}/diffusion_models/wan2.1_t2v_14B_fp8_e4m3fn.safetensors"
+
+    # ── Comfy-Org Native UMT5 fp8 scaled (~6.7GB) ───────────────────────
+    download "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors" \
+        "${MODELS_DIR}/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors"
+
+    # ── Comfy-Org Native VAE (~254MB) ────────────────────────────────────
+    download "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors" \
+        "${MODELS_DIR}/vae/wan_2.1_vae.safetensors"
 
     # ── LTX Video ─────────────────────────────────────────────────────────
     # Lightweight, fast. Great for RTX 3090. Good quality/speed tradeoff.

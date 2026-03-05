@@ -64,7 +64,7 @@ cat > /opt/nerv-ui/auth_config.json <<EOF
     "session_timeout": 3600
 }
 EOF
-chmod 600 /opt/nerv-ui/auth_config.json
+chmod 644 /opt/nerv-ui/auth_config.json
 nerv_log "INFO" "Auth config written"
 
 # ── Phase 4: Model directories ──────────────────────────────────────────────
