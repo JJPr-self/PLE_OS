@@ -150,6 +150,12 @@ inode "comfyui-reactor-node"         "https://github.com/Gourieff/comfyui-reacto
 inode "was-node-suite-comfyui"       "https://github.com/WASasquatch/was-node-suite-comfyui"
 inode "rgthree-comfy"                "https://github.com/rgthree/rgthree-comfy"
 
+# Meme / Audio / Reel
+inode "ComfyUI-F5-TTS"               "https://github.com/longboarder-dev/ComfyUI-F5-TTS"
+inode "comfyui-audio"                "https://github.com/vladmandic/comfyui-audio"
+inode "ComfyUI-LayerStyle"           "https://github.com/chibiace/ComfyUI-LayerStyle"
+inode "ComfyUI-Meme-Generator"       "https://github.com/omar92/ComfyUI-Meme-Generator"
+
 cd "$COMFY"
 
 # ================================================================
