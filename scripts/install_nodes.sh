@@ -75,6 +75,15 @@ install_node "https://github.com/MrForExample/ComfyUI-UniRig" || true
 install_node "https://github.com/MrForExample/ComfyUI-3D-Pack" || true
 
 # ═══════════════════════════════════════════════════
+# MEME / REEL / AUDIO — TTS, Sound, Layering
+# ═══════════════════════════════════════════════════
+echo "=== MEME / AUDIO ==="
+install_node "https://github.com/longboarder-dev/ComfyUI-F5-TTS" || true
+install_node "https://github.com/vladmandic/comfyui-audio" || true
+install_node "https://github.com/chibiace/ComfyUI-LayerStyle" || true
+install_node "https://github.com/omar92/ComfyUI-Meme-Generator" || true
+
+# ═══════════════════════════════════════════════════
 # WORKFLOW UTILITIES
 # ═══════════════════════════════════════════════════
 echo "=== WORKFLOW UTILITIES ==="

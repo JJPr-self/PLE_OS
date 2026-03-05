@@ -279,6 +279,16 @@
                   </button>
                   <button
                     class="action-btn"
+                    id="btn-meme"
+                    onclick="openWorkflow('meme')"
+                    style="border-color: #d946ef; background: rgba(217, 70, 239, 0.05);"
+                  >
+                    <span class="action-icon">🤪</span>
+                    <span class="action-label">MEME REEL</span>
+                    <span class="action-desc">Viral AI Shitposts</span>
+                  </button>
+                  <button
+                    class="action-btn"
                     id="btn-upscale"
                     onclick="openWorkflow('upscale')"
                   >
@@ -369,6 +379,11 @@
                       <input type="radio" name="gen-mode" value="faceswap" />
                       <span class="mode-icon">🎭</span>
                       <span>Face Swap</span>
+                    </label>
+                    <label class="mode-option" data-mode="meme">
+                      <input type="radio" name="gen-mode" value="meme" />
+                      <span class="mode-icon">🤪</span>
+                      <span>Meme Reel</span>
                     </label>
                   </div>
                 </div>

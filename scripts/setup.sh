@@ -224,6 +224,20 @@ dlk "Wan21_AccVid_T2V_14B_lora_rank32_fp16.safetensors"        "models/loras"
 dlk "Wan21_AccVid_I2V_480P_14B_lora_rank32_fp16.safetensors"   "models/loras"
 
 # ================================================================
+# STEP 6B — MEME & TTS MODELS
+# ================================================================
+echo ""
+echo -e "${CYAN}═══════════════════════════════════════════════════${NC}"
+echo -e "${CYAN}  STEP 6B: Meme & TTS Models${NC}"
+echo -e "${CYAN}═══════════════════════════════════════════════════${NC}"
+# F5-TTS & E2-TTS
+dl "https://huggingface.co/charactertts/F5-TTS/resolve/main/F5TTS_Base/model_1200000.pt" "models/f5tts" "model_1200000.pt"
+dl "https://huggingface.co/charactertts/F5-TTS/resolve/main/E2TTS_Base/model_1200000.pt" "models/f5tts" "e2_model_1200000.pt"
+# Vocos
+dl "https://huggingface.co/charactertts/F5-TTS/resolve/main/vocos/config.yaml" "models/f5tts/vocos" "config.yaml"
+dl "https://huggingface.co/charactertts/F5-TTS/resolve/main/vocos/pytorch_model.bin" "models/f5tts/vocos" "pytorch_model.bin"
+
+# ================================================================
 # STEP 7 — COPY WORKFLOWS
 # ================================================================
 echo ""

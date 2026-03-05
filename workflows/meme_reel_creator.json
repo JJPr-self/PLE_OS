@@ -1,0 +1,113 @@
+{
+  "last_node_id": 20,
+  "last_link_id": 25,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "WanVideoModelLoader",
+      "pos": [100, 100],
+      "inputs": {
+        "model": "Wan2_1-T2V-1_3B_fp8_e4m3fn.safetensors"
+      }
+    },
+    {
+      "id": 2,
+      "type": "WanVideoTextEncoder",
+      "pos": [400, 100],
+      "inputs": {
+        "text": "A funny cat wearing sunglasses driving a miniature car, dramatic lighting, cinematic",
+        "model": "umt5-xxl-enc-fp8_e4m3fn.safetensors"
+      }
+    },
+    {
+      "id": 3,
+      "type": "WanVideoSampler",
+      "pos": [700, 100],
+      "inputs": {
+        "model": ["1", 0],
+        "positive": ["2", 0],
+        "negative": "low quality, blurry, distorted",
+        "latent_image": ["4", 0],
+        "seed": 42,
+        "steps": 25,
+        "cfg": 6.0,
+        "sampler_name": "uni_pc",
+        "scheduler": "simple"
+      }
+    },
+    {
+      "id": 4,
+      "type": "EmptyWanVideoLatent",
+      "pos": [100, 300],
+      "inputs": {
+        "width": 480,
+        "height": 720,
+        "frames": 61
+      }
+    },
+    {
+      "id": 5,
+      "type": "WanVideoDecode",
+      "pos": [1000, 100],
+      "inputs": {
+        "vae": ["6", 0],
+        "samples": ["3", 0]
+      }
+    },
+    {
+      "id": 6,
+      "type": "VAELoader",
+      "pos": [700, 300],
+      "inputs": {
+        "vae_name": "Wan2_1_VAE_bf16.safetensors"
+      }
+    },
+    {
+      "id": 10,
+      "type": "F5TTS_Generator",
+      "pos": [100, 500],
+      "inputs": {
+        "model": "model_1200000.pt",
+        "text": "Yo, check out this car. It is the fastest cat in the world!",
+        "ref_audio": "default_ref.wav",
+        "remove_silence": true
+      }
+    },
+    {
+      "id": 11,
+      "type": "MemeGenerator",
+      "pos": [1300, 100],
+      "inputs": {
+        "image": ["5", 0],
+        "top_text": "POV: YOU'RE A FAST CAT",
+        "bottom_text": "BOTTOM TEXT",
+        "font": "Impact.ttf",
+        "font_size": 100,
+        "color": "white"
+      }
+    },
+    {
+      "id": 12,
+      "type": "VideoCombine",
+      "pos": [1600, 100],
+      "inputs": {
+        "images": ["11", 0],
+        "audio": ["10", 0],
+        "frame_rate": 15,
+        "loop_count": 0,
+        "filename_prefix": "meme_reel",
+        "format": "video/h264-mp4"
+      }
+    }
+  ],
+  "links": [
+    [1, 1, 0, 3, 0, "MODEL"],
+    [2, 2, 0, 3, 1, "CONDITIONING"],
+    [3, 4, 0, 3, 3, "LATENT"],
+    [4, 3, 0, 5, 1, "LATENT"],
+    [5, 6, 0, 5, 0, "VAE"],
+    [6, 5, 0, 11, 0, "IMAGE"],
+    [7, 10, 0, 12, 1, "AUDIO"],
+    [8, 11, 0, 12, 0, "IMAGE"]
+  ]
+}

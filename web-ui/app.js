@@ -1025,6 +1025,7 @@ function updateModelOptions(mode) {
       { value: "ltx", text: "LTX Video" },
     ],
     faceswap: [{ value: "sdxl", text: "SDXL + ReActor" }],
+    meme: [{ value: "wan21_1.3b", text: "WAN 2.1 (1.3B) + F5-TTS" }],
   };
 
   (options[mode] || options["txt2img"]).forEach((opt) => {
